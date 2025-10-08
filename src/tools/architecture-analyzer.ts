@@ -25,6 +25,8 @@ export async function analyzeArchitecture(
   const generateDiagrams = params.generateDiagrams ?? true;
   const includeMetrics = params.includeMetrics ?? true;
   const includeDetailedMetrics = params.includeDetailedMetrics ?? true;
+  const minComplexity = params.minComplexity ?? 0;
+  const maxDetailedFiles = params.maxDetailedFiles;
 
   try {
     // Detect framework
@@ -98,7 +100,7 @@ export async function analyzeArchitecture(
 
       // Add detailed per-file metrics if requested
       if (includeDetailedMetrics) {
-        result.metrics.detailedMetrics = validFiles
+        let detailedMetrics = validFiles
           .map((f) => ({
             path: f.path,
             lines: f.lines || 0,
@@ -108,6 +110,18 @@ export async function analyzeArchitecture(
             patterns: f.patterns,
           }))
           .sort((a, b) => b.complexity - a.complexity); // Sort by complexity descending
+
+        // Filter by minimum complexity threshold
+        if (minComplexity > 0) {
+          detailedMetrics = detailedMetrics.filter((f) => f.complexity >= minComplexity);
+        }
+
+        // Limit number of files if specified
+        if (maxDetailedFiles !== undefined && maxDetailedFiles > 0) {
+          detailedMetrics = detailedMetrics.slice(0, maxDetailedFiles);
+        }
+
+        result.metrics.detailedMetrics = detailedMetrics;
       }
     }
 

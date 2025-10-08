@@ -241,6 +241,8 @@ export interface ArchitectureAnalysisParams {
   generateDiagrams?: boolean;
   includeMetrics?: boolean;
   includeDetailedMetrics?: boolean;
+  minComplexity?: number;
+  maxDetailedFiles?: number;
   detectFramework?: boolean;
   framework?: FrameworkType;
 }

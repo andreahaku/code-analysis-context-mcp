@@ -55,16 +55,18 @@ Generate comprehensive architectural overview:
   "analyzeTypes": ["components", "hooks", "navigation"],
   "generateDiagrams": true,
   "includeMetrics": true,
-  "includeDetailedMetrics": true  // Include per-file metrics (complexity, lines, imports, exports, patterns)
+  "includeDetailedMetrics": true,  // Include per-file metrics
+  "minComplexity": 15,              // Only show files with complexity >= 15
+  "maxDetailedFiles": 20            // Limit to top 20 most complex files
 }
 ```
 
-**New Feature**: Set `includeDetailedMetrics: true` to get detailed per-file metrics including:
-- Cyclomatic complexity per file
-- Line counts
-- Import/export counts
-- Framework patterns detected
-- Files sorted by complexity (most complex first)
+**New Features**:
+- **Per-file metrics**: Set `includeDetailedMetrics: true` to get complexity, lines, imports/exports, and patterns
+- **Complexity filtering**: Use `minComplexity` to only show files above a threshold (e.g., 15 for refactoring candidates)
+- **Result limiting**: Use `maxDetailedFiles` to limit response size for large projects (e.g., top 20 most complex)
+- **Automatic framework globs**: Supports both root-level and `src/` directory structures for all frameworks
+- Files automatically sorted by complexity (most complex first)
 
 
 #### 2. `code_analyze_dependency_graph`
@@ -181,19 +183,27 @@ When you use `includeDetailedMetrics: true` in the architecture analysis, you'll
 
 ### 1. Find High Complexity Files for Refactoring
 
-Ask Claude Code: *"Use the architecture analyzer to find the 5 most complex files in my project"*
+Ask Claude Code: *"Find the most complex files in my project that need refactoring"*
 
-The tool automatically sorts files by complexity, so you can quickly identify refactoring candidates:
+**Optimized approach** (filters at source, reduces response size):
 
 ```typescript
-// Claude will call:
+code_analyze_architecture({
+  "projectPath": "/path/to/project",
+  "includeDetailedMetrics": true,
+  "minComplexity": 15,        // Only files with complexity >= 15
+  "maxDetailedFiles": 20      // Top 20 most complex files
+})
+```
+
+**Previous approach** (returns all files, larger response):
+
+```typescript
 code_analyze_architecture({
   "projectPath": "/path/to/project",
   "includeDetailedMetrics": true
+  // Claude then filters the results manually
 })
-
-// Then analyze the detailedMetrics array (already sorted by complexity)
-// and recommend refactoring for files with complexity > 50
 ```
 
 **Example workflow:**

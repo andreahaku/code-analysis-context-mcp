@@ -249,12 +249,34 @@ export class FrameworkDetector {
         return [
           "components/**/*.vue",
           "composables/**/*.ts",
+          "composables/**/*.js",
           "pages/**/*.vue",
           "layouts/**/*.vue",
           "middleware/**/*.ts",
+          "middleware/**/*.js",
           "server/**/*.ts",
           "stores/**/*.ts",
+          "stores/**/*.js",
           "utils/**/*.ts",
+          "utils/**/*.js",
+          "plugins/**/*.ts",
+          "plugins/**/*.js",
+          // Support src/ prefix structure
+          "src/components/**/*.vue",
+          "src/composables/**/*.ts",
+          "src/composables/**/*.js",
+          "src/pages/**/*.vue",
+          "src/layouts/**/*.vue",
+          "src/middleware/**/*.ts",
+          "src/middleware/**/*.js",
+          "src/server/**/*.ts",
+          "src/stores/**/*.ts",
+          "src/stores/**/*.js",
+          "src/utils/**/*.ts",
+          "src/utils/**/*.js",
+          "src/plugins/**/*.ts",
+          "src/plugins/**/*.js",
+          "src/**/*.vue", // Catch any other Vue files in src
         ];
 
       case "vue3":

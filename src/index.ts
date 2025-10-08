@@ -91,6 +91,14 @@ const TOOLS: Tool[] = [
           type: "boolean",
           description: "Include detailed per-file metrics with complexity, lines, imports, exports, and patterns (default: true)",
         },
+        minComplexity: {
+          type: "number",
+          description: "Minimum complexity threshold for files in detailedMetrics (default: 0). Use this to filter out simple files and reduce response size.",
+        },
+        maxDetailedFiles: {
+          type: "number",
+          description: "Maximum number of files to include in detailedMetrics. Use this to limit response size for large projects.",
+        },
         detectFramework: {
           type: "boolean",
           description: "Auto-detect framework (default: true)",
