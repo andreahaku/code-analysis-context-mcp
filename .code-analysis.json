@@ -1,0 +1,34 @@
+{
+  "project": {
+    "name": "CodeAnalysisContextMCP",
+    "type": "node",
+    "rootDir": "."
+  },
+  "analysis": {
+    "includeGlobs": [
+      "src/**/*.ts"
+    ],
+    "excludeGlobs": [
+      "**/*.test.ts",
+      "**/*.spec.ts",
+      "node_modules/**",
+      "dist/**"
+    ]
+  },
+  "conventions": {
+    "naming": {
+      "functions": "camelCase",
+      "classes": "PascalCase",
+      "constants": "UPPER_SNAKE_CASE"
+    },
+    "structure": {
+      "maxFileLength": 400,
+      "maxFunctionLength": 60,
+      "maxComplexity": 12
+    },
+    "typescript": {
+      "noAny": true,
+      "strictNullChecks": true
+    }
+  }
+}
