@@ -74,6 +74,81 @@ Generate comprehensive architectural overview:
 - Large projects (>100 files): Auto-filters to complexity ≥ 10, top 50 files (~3-5k tokens) ⭐
 - Override with explicit `minComplexity: 0` or `maxDetailedFiles: 999` if you need all files
 
+**LLM Memory Integration** 🧠:
+
+Store analysis results in the llm_memory MCP for persistent project knowledge:
+
+```typescript
+{
+  "projectPath": "/path/to/project",
+  "includeDetailedMetrics": true,
+  "generateMemorySuggestions": true  // Generate memory suggestions
+}
+```
+
+This returns structured `memorySuggestions` that Claude Code can store across different scopes:
+
+**Example Output:**
+```json
+{
+  "memorySuggestions": [
+    {
+      "scope": "committed",
+      "type": "insight",
+      "title": "High Complexity Files in MyProject",
+      "text": "Critical refactoring targets:\n- src/services/Tracking.ts (complexity: 161, 450 lines)\n- src/components/Dashboard.tsx (complexity: 87, 324 lines)\n\nThese files exceed complexity threshold of 20...",
+      "tags": ["complexity", "refactoring", "technical-debt", "nuxt3"],
+      "files": ["src/services/Tracking.ts", "src/components/Dashboard.tsx"],
+      "confidence": 0.9
+    },
+    {
+      "scope": "local",
+      "type": "pattern",
+      "title": "MyProject Architecture Pattern",
+      "text": "Framework: nuxt3\nState Management: pinia\nArchitecture Layers: Pages, Components, Composables, Stores, Server\n\nThis project follows a modular structure with 45 components.",
+      "tags": ["architecture", "nuxt3", "overview"],
+      "confidence": 0.95
+    },
+    {
+      "scope": "global",
+      "type": "pattern",
+      "title": "Nuxt 3 Auto-Import Pattern",
+      "text": "Nuxt 3 projects auto-import composables and components:\n- Composables from composables/ directory\n- Components from components/ directory\n- No explicit imports needed",
+      "tags": ["nuxt3", "composables", "auto-import", "pattern"],
+      "confidence": 0.85
+    }
+  ]
+}
+```
+
+**Memory Scopes:**
+- **global**: Reusable knowledge across all projects (framework patterns, best practices)
+- **local**: Current session context (architecture overview, metrics)
+- **committed**: Project-persistent, team-visible (high-complexity files, stores config)
+
+**Usage with llm_memory MCP:**
+
+After receiving memory suggestions, Claude Code can store them:
+
+```typescript
+// Claude Code automatically calls llm_memory MCP for each suggestion
+memory_upsert({
+  "scope": "committed",
+  "type": "insight",
+  "title": "High Complexity Files in MyProject",
+  "text": "Critical refactoring targets...",
+  "tags": ["complexity", "refactoring", "technical-debt", "nuxt3"],
+  "files": ["src/services/Tracking.ts"],
+  "confidence": 0.9
+})
+```
+
+**Benefits:**
+- 📝 Persistent project knowledge survives conversation compacting
+- 🎯 Critical insights available across sessions (high-complexity files, architecture decisions)
+- 🌍 Reusable patterns stored globally (framework best practices)
+- 👥 Team-visible technical debt tracking (committed scope)
+
 
 #### 2. `code_analyze_dependency_graph`
 
@@ -348,6 +423,71 @@ code_analyze_architecture({
 - Complexity increase > 20 points → Review needed
 - New file complexity > 50 → Refactor before commit
 - Missing tests for complex logic → Add tests
+
+### 9. Store Analysis in LLM Memory for Persistent Context
+
+Ask Claude Code: *"Analyze my project and store key insights in memory for future sessions"*
+
+```typescript
+code_analyze_architecture({
+  "projectPath": "/path/to/project",
+  "includeDetailedMetrics": true,
+  "generateMemorySuggestions": true
+})
+```
+
+**What gets stored:**
+
+1. **High-Complexity Files** (committed scope):
+   - Files with complexity ≥ 20 that need refactoring
+   - Visible to all team members
+   - Survives conversation resets
+
+2. **Architecture Overview** (local scope):
+   - Framework type, state management pattern
+   - Layer architecture
+   - Component counts
+
+3. **Framework Patterns** (global scope):
+   - Reusable knowledge (e.g., Nuxt3 auto-imports)
+   - Available across all projects
+
+4. **State Management Config** (committed scope):
+   - Pinia/Redux store locations
+   - Store names and paths
+
+5. **Project Metrics** (local scope):
+   - Total files, lines, complexity stats
+   - Timestamped for trend tracking
+
+**Workflow Example:**
+
+```bash
+# Initial analysis - Claude stores results in memory
+"Analyze my project and remember key insights"
+# → Generates memorySuggestions
+# → Claude automatically calls llm_memory MCP
+
+# Days later, new conversation
+"What are the most complex files in my project?"
+# → Claude retrieves from llm_memory
+# → No need to re-analyze entire project
+
+# Before refactoring
+"What's the current complexity of Tracking.ts?"
+# → Instant answer from stored metrics
+
+# After refactoring
+"Update the complexity metrics for Tracking.ts"
+# → Re-analyze specific file
+# → Update memory with new metrics
+```
+
+**Benefits:**
+- 💾 **Persistent Context**: Insights survive conversation compacting
+- ⚡ **Instant Retrieval**: No need to re-analyze project for known facts
+- 👥 **Team Knowledge**: Committed scope visible across team members
+- 📈 **Trend Tracking**: Compare metrics over time from stored snapshots
 
 ## Configuration
 
