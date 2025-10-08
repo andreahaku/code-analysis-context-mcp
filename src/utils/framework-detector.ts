@@ -276,7 +276,10 @@ export class FrameworkDetector {
           "src/utils/**/*.js",
           "src/plugins/**/*.ts",
           "src/plugins/**/*.js",
-          "src/**/*.vue", // Catch any other Vue files in src
+          // Catch-all patterns for src directory (services, models, api, lib, etc.)
+          "src/**/*.vue",
+          "src/**/*.ts",
+          "src/**/*.js",
         ];
 
       case "vue3":
