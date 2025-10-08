@@ -27,6 +27,7 @@ export async function analyzeArchitecture(
   const includeDetailedMetrics = params.includeDetailedMetrics ?? true;
   const minComplexity = params.minComplexity ?? 0;
   const maxDetailedFiles = params.maxDetailedFiles;
+  const generateMemorySuggestions = params.generateMemorySuggestions ?? false;
 
   try {
     // Detect framework
@@ -143,6 +144,11 @@ export async function analyzeArchitecture(
           );
         }
       }
+    }
+
+    // Generate LLM memory suggestions if requested
+    if (generateMemorySuggestions) {
+      result.memorySuggestions = generateMemorySuggestionsFromAnalysis(result, projectPath);
     }
 
     // Format response
@@ -407,4 +413,84 @@ async function analyzeReact(
   ];
 
   return result;
+}
+
+/**
+ * Generate LLM memory suggestions from analysis results
+ */
+function generateMemorySuggestionsFromAnalysis(
+  result: ArchitectureAnalysisResult,
+  projectPath: string
+): import("../types/index.js").MemorySuggestion[] {
+  const suggestions: import("../types/index.js").MemorySuggestion[] = [];
+  const projectName = path.basename(projectPath);
+
+  // 1. Store high-complexity files in committed scope (persistent, team-visible)
+  if (result.metrics?.detailedMetrics) {
+    const criticalFiles = result.metrics.detailedMetrics.filter((f) => f.complexity >= 20);
+
+    if (criticalFiles.length > 0) {
+      suggestions.push({
+        scope: "committed",
+        type: "insight",
+        title: `High Complexity Files in ${projectName}`,
+        text: `Critical refactoring targets:\n${criticalFiles
+          .slice(0, 10)
+          .map((f) => `- ${f.path} (complexity: ${f.complexity}, ${f.lines} lines)`)
+          .join("\n")}\n\nThese files exceed complexity threshold of 20 and should be prioritized for refactoring.`,
+        tags: ["complexity", "refactoring", "technical-debt", result.project.type],
+        files: criticalFiles.slice(0, 10).map((f) => f.path),
+        confidence: 0.9,
+      });
+    }
+  }
+
+  // 2. Store architecture overview in local scope (current session)
+  const layerNames = result.architecture.layers.map((l) => l.name).join(", ");
+  suggestions.push({
+    scope: "local",
+    type: "pattern",
+    title: `${projectName} Architecture Pattern`,
+    text: `Framework: ${result.project.type}\nState Management: ${result.stateManagement.pattern}\nArchitecture Layers: ${layerNames}\n\nThis project follows a ${result.project.structure} structure with ${result.components.total} components.`,
+    tags: ["architecture", result.project.type, "overview"],
+    confidence: 0.95,
+  });
+
+  // 3. Store framework-specific patterns in global scope (reusable knowledge)
+  if (result.project.type === "nuxt3" && result.composables) {
+    suggestions.push({
+      scope: "global",
+      type: "pattern",
+      title: `Nuxt 3 Auto-Import Pattern`,
+      text: `Nuxt 3 projects auto-import composables and components:\n- Composables from composables/ directory\n- Components from components/ directory\n- No explicit imports needed\n\nDetected ${result.composables.total} composables in this pattern.`,
+      tags: ["nuxt3", "composables", "auto-import", "pattern"],
+      confidence: 0.85,
+      });
+  }
+
+  // 4. Store state management configuration
+  if (result.stateManagement.stores && result.stateManagement.stores.length > 0) {
+    const storeList = result.stateManagement.stores.map((s) => s.name).join(", ");
+    suggestions.push({
+      scope: "committed",
+      type: "config",
+      title: `${projectName} State Management Stores`,
+      text: `Using ${result.stateManagement.pattern} with ${result.stateManagement.stores.length} stores:\n${storeList}\n\nStore locations: ${result.stateManagement.stores.map((s) => s.path).join(", ")}`,
+      tags: ["state-management", result.stateManagement.pattern, "stores"],
+      files: result.stateManagement.stores.map((s) => s.path),
+      confidence: 1.0,
+    });
+  }
+
+  // 5. Store project metrics as facts in local scope
+  suggestions.push({
+    scope: "local",
+    type: "fact",
+    title: `${projectName} Code Metrics`,
+    text: `Total Files: ${result.metrics.totalFiles}\nTotal Lines: ${result.metrics.totalLines}\nAverage Complexity: ${result.metrics.avgComplexity.toFixed(2)}\nMax Complexity: ${result.metrics.maxComplexity}\n\nAnalysis performed: ${new Date().toISOString().split("T")[0]}`,
+    tags: ["metrics", "statistics", projectName.toLowerCase()],
+    confidence: 1.0,
+  });
+
+  return suggestions;
 }

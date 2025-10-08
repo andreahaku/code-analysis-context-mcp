@@ -99,6 +99,10 @@ const TOOLS: Tool[] = [
           type: "number",
           description: "Maximum number of files to include in detailedMetrics. Use this to limit response size for large projects.",
         },
+        generateMemorySuggestions: {
+          type: "boolean",
+          description: "Generate suggestions for storing analysis results in LLM memory MCP (global/local/committed scopes). Default: false",
+        },
         detectFramework: {
           type: "boolean",
           description: "Auto-detect framework (default: true)",

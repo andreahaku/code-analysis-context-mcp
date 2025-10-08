@@ -208,6 +208,17 @@ export interface DiagramInfo {
   dataFlow?: string;
 }
 
+// LLM Memory suggestion for storing analysis results
+export interface MemorySuggestion {
+  scope: "global" | "local" | "committed";
+  type: "insight" | "pattern" | "fact" | "config";
+  title: string;
+  text: string;
+  tags: string[];
+  files?: string[];
+  confidence?: number;
+}
+
 // Architecture analysis result
 export interface ArchitectureAnalysisResult {
   project: ProjectConfig;
@@ -229,6 +240,7 @@ export interface ArchitectureAnalysisResult {
   metrics: CodeMetrics;
   diagrams: DiagramInfo;
   recommendations: string[];
+  memorySuggestions?: MemorySuggestion[];
 }
 
 // Tool parameters
@@ -243,6 +255,7 @@ export interface ArchitectureAnalysisParams {
   includeDetailedMetrics?: boolean;
   minComplexity?: number;
   maxDetailedFiles?: number;
+  generateMemorySuggestions?: boolean;
   detectFramework?: boolean;
   framework?: FrameworkType;
 }
