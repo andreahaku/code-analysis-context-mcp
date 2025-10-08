@@ -146,6 +146,14 @@ The server communicates via stdio and returns JSON-formatted analysis results.
 - Results sorted by complexity descending for quick hotspot identification
 - Useful for refactoring prioritization and technical debt tracking
 
+### Auto-Optimization for Large Projects
+- Activates automatically when project has >100 files and no filtering params specified
+- Applies smart defaults: `minComplexity: 10`, `maxDetailedFiles: 50`
+- Reduces response size by 66-80% (15k → 3-5k tokens)
+- Adds notification to `recommendations` array explaining the optimization
+- User can override with explicit `minComplexity: 0` or `maxDetailedFiles: 999`
+- Implementation: `src/tools/architecture-analyzer.ts:120-144`
+
 ### Stub Tools
 Five tools currently return placeholder data but have complete interfaces ready for implementation:
 - `code_analyze_dependency_graph` - Uses `madge` and `dependency-cruiser`
