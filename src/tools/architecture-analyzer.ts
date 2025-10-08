@@ -111,17 +111,37 @@ export async function analyzeArchitecture(
           }))
           .sort((a, b) => b.complexity - a.complexity); // Sort by complexity descending
 
+        // Smart defaults for large projects
+        let appliedMinComplexity = minComplexity;
+        let appliedMaxFiles = maxDetailedFiles;
+        let autoOptimized = false;
+
+        // Auto-optimize for large projects if no filters specified
+        if (validFiles.length > 100 && minComplexity === 0 && maxDetailedFiles === undefined) {
+          appliedMinComplexity = 10; // Only show files with complexity >= 10
+          appliedMaxFiles = 50; // Limit to top 50
+          autoOptimized = true;
+        }
+
         // Filter by minimum complexity threshold
-        if (minComplexity > 0) {
-          detailedMetrics = detailedMetrics.filter((f) => f.complexity >= minComplexity);
+        if (appliedMinComplexity > 0) {
+          detailedMetrics = detailedMetrics.filter((f) => f.complexity >= appliedMinComplexity);
         }
 
         // Limit number of files if specified
-        if (maxDetailedFiles !== undefined && maxDetailedFiles > 0) {
-          detailedMetrics = detailedMetrics.slice(0, maxDetailedFiles);
+        if (appliedMaxFiles !== undefined && appliedMaxFiles > 0) {
+          detailedMetrics = detailedMetrics.slice(0, appliedMaxFiles);
         }
 
         result.metrics.detailedMetrics = detailedMetrics;
+
+        // Add optimization note if auto-optimized
+        if (autoOptimized) {
+          result.recommendations.unshift(
+            `📊 Auto-optimized for large project: Showing only files with complexity ≥ ${appliedMinComplexity} (top ${appliedMaxFiles}). ` +
+            `Use minComplexity and maxDetailedFiles parameters to customize filtering.`
+          );
+        }
       }
     }
 

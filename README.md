@@ -63,10 +63,16 @@ Generate comprehensive architectural overview:
 
 **New Features**:
 - **Per-file metrics**: Set `includeDetailedMetrics: true` to get complexity, lines, imports/exports, and patterns
+- **Auto-optimization**: For projects >100 files, automatically filters to complexity ≥ 10 (top 50 files) to reduce response size
 - **Complexity filtering**: Use `minComplexity` to only show files above a threshold (e.g., 15 for refactoring candidates)
 - **Result limiting**: Use `maxDetailedFiles` to limit response size for large projects (e.g., top 20 most complex)
 - **Automatic framework globs**: Supports both root-level and `src/` directory structures for all frameworks
 - Files automatically sorted by complexity (most complex first)
+
+**Response Size Optimization**:
+- Small projects (<100 files): Returns all files (~5-10k tokens)
+- Large projects (>100 files): Auto-filters to complexity ≥ 10, top 50 files (~3-5k tokens) ⭐
+- Override with explicit `minComplexity: 0` or `maxDetailedFiles: 999` if you need all files
 
 
 #### 2. `code_analyze_dependency_graph`
