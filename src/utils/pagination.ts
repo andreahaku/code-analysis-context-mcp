@@ -112,11 +112,15 @@ export function smartPaginate<T>(
 
   // AUTO-PAGINATION: If no pagination params AND many items, force page 1
   // This prevents building huge responses that exceed MCP limits
-  if (autoPaginate && !params.page && !params.pageSize && items.length > autoThreshold) {
-    params = { ...params, page: 1 };
+  let effectivePage = params.page;
+  let effectivePageSize = params.pageSize;
+
+  if (autoPaginate && !effectivePage && !effectivePageSize && items.length > autoThreshold) {
+    effectivePage = 1;
+    effectivePageSize = DEFAULT_PAGE_SIZE;
   }
 
-  let requestedPageSize = params.pageSize || DEFAULT_PAGE_SIZE;
+  let requestedPageSize = effectivePageSize || DEFAULT_PAGE_SIZE;
 
   // If items are very large, adjust page size automatically
   if (items.length > 0) {
@@ -134,7 +138,7 @@ export function smartPaginate<T>(
     requestedPageSize = Math.min(requestedPageSize, safePageSize);
   }
 
-  return paginate(items, { ...params, pageSize: requestedPageSize });
+  return paginate(items, { page: effectivePage, pageSize: requestedPageSize });
 }
 
 /**
