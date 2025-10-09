@@ -432,16 +432,195 @@ Validate coding conventions:
 
 #### 6. `code_generate_context_pack`
 
-Build optimal AI context:
+Build optimal AI context packs for LLM tools (Claude Code, Codex, Cursor) by intelligently selecting and ranking files based on task relevance:
 
 ```typescript
 {
-  "task": "Add a new feature with authentication",
+  "task": "Add authentication with JWT tokens and refresh logic",
   "projectPath": "/path/to/project",
   "maxTokens": 50000,
-  "includeTypes": ["relevant-files", "architecture", "conventions"]
+  "includeTypes": ["relevant-files", "architecture", "dependencies", "tests"],
+  "focusAreas": ["src/auth", "src/services"],
+  "includeHistory": false,
+  "format": "markdown",
+  "includeLineNumbers": true,
+  "optimizationStrategy": "relevance"
 }
 ```
+
+**Core Features:**
+
+- **Intelligent Task Analysis**: Parses task description to extract:
+  - Task type (feature/bug/refactor/investigation/documentation)
+  - Keywords and domain concepts (auth, login, payment, etc.)
+  - Framework concepts (hooks, composables, stores, etc.)
+  - Explicitly mentioned files/paths
+
+- **Smart File Relevance Scoring**:
+  - **100 points**: Explicitly mentioned files (e.g., "fix src/auth.ts")
+  - **50 points**: Files in focus areas
+  - **20-30 points**: Domain concept matches (auth, payment, user)
+  - **10-20 points**: Keyword matches in file path/content
+  - **15 points**: Test files for bug-related tasks
+  - Files sorted by relevance score descending
+
+- **Token Budget Management**:
+  - **Relevance strategy** (default): 60% primary files, 15% dependencies, 10% architecture, 10% tests, 5% types
+  - **Breadth strategy**: More files with less detail (50% primary, 20% dependencies, 15% architecture)
+  - **Depth strategy**: Fewer files with full context (70% primary, 15% dependencies, 5% architecture)
+  - Intelligent content truncation when files exceed budget (keeps first 60% and last 20%)
+
+- **Architectural Context**: Optional high-level project overview including:
+  - Framework type and structure
+  - State management pattern
+  - Navigation approach
+  - Component/hook/composable counts
+
+- **Dependency Traversal**: Automatically includes files imported by relevant files
+  - Resolves relative imports
+  - Limits to top 10 dependencies to avoid explosion
+  - Respects token budget for dependencies
+
+- **Multiple Output Formats**:
+  - **Markdown** (default): Best for Claude Code, with syntax highlighting and line numbers
+  - **JSON**: Structured data for programmatic consumption
+  - **XML**: Alternative structured format
+
+**Example Output:**
+
+```json
+{
+  "task": "Add authentication with JWT tokens",
+  "taskAnalysis": {
+    "type": "feature",
+    "keywords": ["authentication", "tokens", "login"],
+    "domainConcepts": ["auth", "login", "user"],
+    "frameworkConcepts": ["hook", "component", "service"],
+    "actionVerbs": ["add", "implement"],
+    "mentionedFiles": []
+  },
+  "strategy": "relevance",
+  "tokenBudget": {
+    "max": 50000,
+    "used": 42500,
+    "remaining": 7500,
+    "breakdown": {
+      "architecture": 5000,
+      "relevantFiles": 30000,
+      "dependencies": 5000,
+      "tests": 2000,
+      "types": 500
+    }
+  },
+  "architecture": {
+    "framework": "react",
+    "structure": "modular",
+    "stateManagement": "context",
+    "navigation": "stack",
+    "overview": "react project with 4 layers, 45 components, 12 hooks"
+  },
+  "files": [
+    {
+      "path": "src/hooks/useAuth.ts",
+      "relevanceScore": 85.5,
+      "reasons": [
+        "Path contains domain concept: auth",
+        "Content contains \"authentication\" (5 times)",
+        "Path contains framework concept: hook"
+      ],
+      "content": "import { useState, useEffect } from 'react';\n...",
+      "lineNumbers": true,
+      "truncated": false,
+      "tokenCount": 450,
+      "category": "primary"
+    },
+    {
+      "path": "src/services/auth-service.ts",
+      "relevanceScore": 72.0,
+      "reasons": [
+        "Path contains domain concept: auth",
+        "Content contains \"jwt\" (3 times)",
+        "Path contains framework concept: service"
+      ],
+      "content": "export class AuthService {\n...",
+      "lineNumbers": true,
+      "truncated": false,
+      "tokenCount": 680,
+      "category": "primary"
+    },
+    {
+      "path": "src/types/auth.ts",
+      "relevanceScore": 45.0,
+      "reasons": ["Dependency of src/hooks/useAuth.ts"],
+      "content": "export interface User {...}",
+      "lineNumbers": true,
+      "truncated": false,
+      "tokenCount": 120,
+      "category": "dependency"
+    }
+  ],
+  "relatedTests": ["src/hooks/__tests__/useAuth.test.ts"],
+  "conventions": [
+    "Custom hooks use 'use' prefix",
+    "Services in services/ directory"
+  ],
+  "patterns": ["React Hooks", "Context API", "Async/Await"],
+  "suggestions": [
+    "✅ Found 5 highly relevant files - great starting point!",
+    "💡 Review similar components/hooks to follow existing patterns",
+    "💡 Consider adding tests for your new feature"
+  ],
+  "formattedOutput": "# Context Pack: Add authentication with JWT tokens\n\n...",
+  "metadata": {
+    "totalFilesAnalyzed": 120,
+    "filesIncluded": 8,
+    "avgRelevanceScore": 62.3,
+    "generatedAt": "2025-10-09T12:30:45.123Z"
+  }
+}
+```
+
+**Optimization Strategies:**
+
+1. **Relevance** (default - best for focused work):
+   - Prioritizes most relevant files
+   - Includes essential dependencies
+   - Minimal architectural context
+   - Best for: Feature development, bug fixes
+
+2. **Breadth** (survey mode):
+   - More files with abbreviated content
+   - Wider coverage of codebase
+   - More architectural context
+   - Best for: Investigation, understanding unfamiliar code
+
+3. **Depth** (deep dive):
+   - Fewer files with complete content
+   - Full dependency chains
+   - Minimal truncation
+   - Best for: Complex refactoring, deep debugging
+
+**Use Cases:**
+
+1. **Feature Development**: "Add payment processing with Stripe"
+   - Finds existing payment-related code
+   - Includes API service patterns
+   - Suggests similar implementations to follow
+
+2. **Bug Investigation**: "Fix login redirect loop on mobile"
+   - Prioritizes navigation/auth files
+   - Includes related test files
+   - Shows error handling patterns
+
+3. **Code Refactoring**: "Extract dashboard logic into composables"
+   - Finds dashboard components
+   - Shows existing composable patterns
+   - Includes dependent files
+
+4. **API Integration**: "Integrate new GraphQL endpoint for user profiles"
+   - Finds existing API client code
+   - Shows GraphQL query patterns
+   - Includes type definitions
 
 ## Example: Detailed Metrics Output
 
@@ -869,9 +1048,9 @@ Create a `.code-analysis.json` file in your project root:
 ### Phase 3-4: Advanced Features 🚧
 
 - [x] Full dependency graph analysis with circular detection
+- [x] Context pack optimization with intelligent file ranking
 - [ ] Coverage analysis with test scaffolding
 - [ ] Convention validation with auto-fix
-- [ ] Context pack optimization
 
 ## Architecture
 

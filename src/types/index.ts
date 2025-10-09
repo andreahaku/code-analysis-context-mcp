@@ -488,3 +488,99 @@ export interface DependencyAnalysisParams {
   focusModule?: string;
   includeExternal?: boolean;
 }
+
+// Context Pack Generation types
+export type TaskType = "feature" | "bug" | "refactor" | "investigation" | "documentation" | "general";
+export type OptimizationStrategy = "relevance" | "breadth" | "depth";
+
+export interface TaskAnalysis {
+  type: TaskType;
+  keywords: string[];
+  mentionedFiles: string[];
+  frameworkConcepts: string[]; // hooks, composables, stores, etc.
+  domainConcepts: string[]; // auth, payment, user, api, etc.
+  actionVerbs: string[]; // add, fix, refactor, implement, etc.
+}
+
+export interface FileRelevance {
+  path: string;
+  score: number;
+  reasons: string[];
+  tokens: number;
+  complexity?: number;
+  lastModified?: Date;
+}
+
+export interface ContextFile {
+  path: string;
+  relevanceScore: number;
+  reasons: string[];
+  content: string;
+  lineNumbers: boolean;
+  truncated: boolean;
+  tokenCount: number;
+  category: "primary" | "dependency" | "test" | "type" | "architecture";
+}
+
+export interface TokenBudget {
+  max: number;
+  used: number;
+  remaining: number;
+  breakdown: {
+    architecture: number;
+    relevantFiles: number;
+    dependencies: number;
+    tests: number;
+    types: number;
+  };
+}
+
+export interface ContextPackResult {
+  task: string;
+  taskAnalysis: TaskAnalysis;
+  strategy: OptimizationStrategy;
+  tokenBudget: TokenBudget;
+  architecture?: {
+    framework: string;
+    structure: string;
+    stateManagement: string;
+    navigation: string;
+    overview: string;
+  };
+  files: ContextFile[];
+  relatedTests: string[];
+  conventions: string[];
+  patterns: string[];
+  suggestions: string[];
+  formattedOutput: string;
+  metadata: {
+    totalFilesAnalyzed: number;
+    filesIncluded: number;
+    avgRelevanceScore: number;
+    generatedAt: string;
+  };
+}
+
+export interface ContextPackParams {
+  task: string;
+  projectPath?: string;
+  maxTokens?: number;
+  includeTypes?: Array<
+    | "relevant-files"
+    | "dependencies"
+    | "tests"
+    | "types"
+    | "architecture"
+    | "conventions"
+    | "related-code"
+    | "composables"
+    | "stores"
+    | "server-routes"
+    | "nuxt-config"
+  >;
+  focusAreas?: string[];
+  includeHistory?: boolean;
+  format?: "markdown" | "json" | "xml";
+  includeLineNumbers?: boolean;
+  optimizationStrategy?: OptimizationStrategy;
+}
