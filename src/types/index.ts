@@ -460,6 +460,8 @@ export interface PatternAnalysisParams {
   detectCustomPatterns?: boolean;
   compareWithBestPractices?: boolean;
   suggestImprovements?: boolean;
+  page?: number;
+  pageSize?: number;
 }
 
 // Dependency Analysis types
@@ -518,6 +520,8 @@ export interface DependencyAnalysisParams {
   generateDiagram?: boolean;
   focusModule?: string;
   includeExternal?: boolean;
+  page?: number;
+  pageSize?: number;
 }
 
 // Context Pack Generation types
@@ -739,6 +743,8 @@ export interface CoverageAnalysisParams {
   excludeGlobs?: string[];
   suggestTests?: boolean;
   analyzeComplexity?: boolean;
+  page?: number;
+  pageSize?: number;
 }
 
 // Convention Validation types
@@ -893,6 +899,8 @@ export interface ConventionValidationParams {
   autoFix?: boolean; // Generate auto-fix suggestions
   applyAutoFixes?: boolean; // Actually apply safe fixes
   framework?: FrameworkType;
+  page?: number;
+  pageSize?: number;
 }
 
 // ====================== React Native Mobile-Specific Types ======================

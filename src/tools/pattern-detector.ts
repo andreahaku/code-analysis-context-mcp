@@ -8,6 +8,7 @@ import * as path from "path";
 import glob from "fast-glob";
 import { ASTParser } from "../services/ast-parser.js";
 import { FrameworkDetector } from "../utils/framework-detector.js";
+import { Pagination } from "../utils/pagination.js";
 import type {
   PatternAnalysisParams,
   PatternAnalysisResult,
@@ -36,6 +37,8 @@ export async function analyzePatterns(
     detectCustomPatterns = false,
     compareWithBestPractices = false,
     suggestImprovements = false,
+    page,
+    pageSize,
   } = params;
 
   // Detect framework
@@ -110,11 +113,43 @@ export async function analyzePatterns(
   // Calculate summary
   calculateSummary(result);
 
+  // Apply smart pagination (auto-paginates if response is too large)
+  let paginatedResult: PatternAnalysisResult & { _pagination?: any } = result;
+  let paginationInfo: any = null;
+
+  // Paginate the largest pattern collections
+  const patternArrays = Object.entries(result.patterns).filter(([_, v]) => Array.isArray(v));
+
+  if (patternArrays.length > 0) {
+    // Find largest array
+    const largestPattern = patternArrays.reduce((max, curr) =>
+      (curr[1] as any[]).length > (max[1] as any[]).length ? curr : max
+    );
+
+    const [patternKey, patternArray] = largestPattern;
+    const paginated = Pagination.smartPaginate(patternArray as any[], { page, pageSize });
+
+    paginatedResult = {
+      ...result,
+      patterns: {
+        ...result.patterns,
+        [patternKey]: paginated.items,
+      },
+    };
+
+    paginationInfo = paginated.pagination;
+  }
+
+  // Add pagination metadata if paginated
+  if (paginationInfo) {
+    paginatedResult = Pagination.addPaginationMetadata(paginatedResult, paginationInfo);
+  }
+
   return {
     content: [
       {
         type: "text",
-        text: JSON.stringify(result, null, 2),
+        text: JSON.stringify(paginatedResult, null, 2),
       },
     ],
   };

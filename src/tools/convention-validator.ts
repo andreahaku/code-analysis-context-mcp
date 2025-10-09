@@ -9,6 +9,7 @@ import * as path from "path";
 import * as fs from "fs/promises";
 import glob from "fast-glob";
 import { FrameworkDetector } from "../utils/framework-detector.js";
+import { Pagination } from "../utils/pagination.js";
 import type {
   ConventionValidationParams,
   ConventionValidationResult,
@@ -37,6 +38,8 @@ export async function validateConventions(
     autoFix = true,
     applyAutoFixes = false,
     framework: userFramework,
+    page,
+    pageSize,
   } = params;
 
   // Step 1: Detect framework
@@ -108,7 +111,10 @@ export async function validateConventions(
     framework
   );
 
-  const result: ConventionValidationResult = {
+  // Apply smart pagination (auto-paginates if response is too large)
+  const paginatedViolations = Pagination.smartPaginate(filteredViolations, { page, pageSize });
+
+  let result: ConventionValidationResult & { _pagination?: any } = {
     project: {
       name: path.basename(projectPath),
       framework,
@@ -116,7 +122,7 @@ export async function validateConventions(
     },
     detectedConventions,
     conventions,
-    violations: filteredViolations,
+    violations: paginatedViolations.items,
     consistency,
     summary,
     autoFixSuggestions,
@@ -126,6 +132,11 @@ export async function validateConventions(
       filesAnalyzed: files.length,
     },
   };
+
+  // Add pagination metadata if paginated
+  if (paginatedViolations.pagination) {
+    result = Pagination.addPaginationMetadata(result, paginatedViolations.pagination);
+  }
 
   return {
     content: [

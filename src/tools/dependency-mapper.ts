@@ -7,6 +7,7 @@
 import * as path from "path";
 import glob from "fast-glob";
 import { ASTParser } from "../services/ast-parser.js";
+import { Pagination } from "../utils/pagination.js";
 import type {
   DependencyAnalysisParams,
   DependencyAnalysisResult,
@@ -31,6 +32,8 @@ export async function analyzeDependencyGraph(
     generateDiagram = true,
     focusModule,
     includeExternal = false,
+    page,
+    pageSize,
   } = params;
 
   // Get all files
@@ -70,11 +73,15 @@ export async function analyzeDependencyGraph(
   }
 
   // Identify hotspots
-  const hotspots = identifyHotspots(focusedGraph);
+  const allHotspots = identifyHotspots(focusedGraph);
 
-  // Generate diagram
+  // Apply smart pagination (auto-paginates if response is too large)
+  const paginatedHotspots = Pagination.smartPaginate(allHotspots, { page, pageSize });
+  const hotspots = paginatedHotspots.items;
+
+  // Generate diagram (skip if paginating to reduce size)
   let diagram: string | undefined;
-  if (generateDiagram) {
+  if (generateDiagram && !page) {
     diagram = generateMermaidDiagram(focusedGraph, circularDependencies, hotspots);
   }
 
@@ -94,7 +101,7 @@ export async function analyzeDependencyGraph(
     circularCount: circularDependencies.length,
   };
 
-  const result: DependencyAnalysisResult = {
+  let result: DependencyAnalysisResult & { _pagination?: any } = {
     project: {
       name: path.basename(projectPath),
       totalFiles: files.length,
@@ -107,6 +114,11 @@ export async function analyzeDependencyGraph(
     recommendations,
     summary,
   };
+
+  // Add pagination info if paginated
+  if (paginatedHotspots.pagination) {
+    result = Pagination.addPaginationMetadata(result, paginatedHotspots.pagination);
+  }
 
   return {
     content: [

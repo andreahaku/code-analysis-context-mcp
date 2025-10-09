@@ -10,6 +10,7 @@ import * as fs from "fs/promises";
 import glob from "fast-glob";
 import { ASTParser } from "../services/ast-parser.js";
 import { FrameworkDetector } from "../utils/framework-detector.js";
+import { Pagination } from "../utils/pagination.js";
 import type {
   CoverageAnalysisParams,
   CoverageAnalysisResult,
@@ -37,6 +38,8 @@ export async function analyzeCoverageGaps(
     excludeGlobs = ["**/*.test.*", "**/*.spec.*", "**/__tests__/**", "**/node_modules/**"],
     suggestTests = true,
     analyzeComplexity = true,
+    page,
+    pageSize,
   } = params;
 
   // Step 1: Detect framework and test framework
@@ -161,7 +164,10 @@ export async function analyzeCoverageGaps(
     threshold
   );
 
-  const result: CoverageAnalysisResult = {
+  // Apply smart pagination (auto-paginates if response is too large)
+  const paginatedGaps = Pagination.smartPaginate(gaps, { page, pageSize });
+
+  let result: CoverageAnalysisResult & { _pagination?: any } = {
     project: {
       name: path.basename(projectPath),
       totalFiles: files.length,
@@ -175,7 +181,7 @@ export async function analyzeCoverageGaps(
       testFramework,
     },
     threshold,
-    gaps,
+    gaps: paginatedGaps.items,
     criticalGaps,
     existingTestPatterns: existingPatterns,
     recommendations,
@@ -185,6 +191,11 @@ export async function analyzeCoverageGaps(
       gapsAboveThreshold: gaps.filter((g) => g.priority === "critical" || g.priority === "high").length,
     },
   };
+
+  // Add pagination metadata if paginated
+  if (paginatedGaps.pagination) {
+    result = Pagination.addPaginationMetadata(result, paginatedGaps.pagination);
+  }
 
   return {
     content: [
