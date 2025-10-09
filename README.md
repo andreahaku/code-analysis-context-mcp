@@ -730,13 +730,418 @@ Identify untested code with meaningful, actionable test suggestions prioritized 
 
 #### 5. `code_validate_conventions`
 
-Validate coding conventions:
+Validate adherence to project-specific naming, structure, and coding conventions with intelligent auto-detection and auto-fix capabilities:
 
 ```typescript
 {
   "projectPath": "/path/to/project",
-  "autodetectConventions": true
+  "includeGlobs": ["**/*.{ts,tsx,js,jsx,vue}"],
+  "excludeGlobs": ["**/node_modules/**", "**/dist/**"],
+  "conventions": {                    // Optional: Provide custom conventions
+    "naming": {
+      "components": {
+        "pattern": "PascalCase",
+        "description": "Components should use PascalCase"
+      },
+      "hooks": {
+        "pattern": "use[A-Z][a-zA-Z]+",
+        "description": "Hooks must start with 'use'"
+      }
+    },
+    "imports": {
+      "grouping": true,
+      "style": "relative"
+    },
+    "style": {
+      "quotes": "single",
+      "semicolons": true
+    }
+  },
+  "autodetectConventions": true,     // Auto-detect from existing code
+  "severity": "warning",              // Minimum severity: "error" | "warning" | "info"
+  "autoFix": true,                    // Generate auto-fix suggestions
+  "applyAutoFixes": false,            // Actually apply safe fixes
+  "framework": "react"                // Auto-detected if not specified
 }
+```
+
+**Core Features:**
+
+- **Auto-Detection of Project Conventions**:
+  Analyzes existing codebase to learn your conventions:
+  - **Component Naming**: Detects PascalCase vs kebab-case vs camelCase (70%+ confidence threshold)
+  - **Hook/Composable Naming**: Identifies use* prefix patterns
+  - **Import Style**: Relative vs absolute imports
+  - **Quote Style**: Single vs double quotes
+  - Provides confidence scores for each detected pattern
+
+- **Multi-Category Validation**:
+  - **Naming**: Components, hooks, composables, utilities, constants, types, files, directories
+  - **Structure**: Directory organization, file organization patterns
+  - **Imports**: Import order, grouping, style (relative/absolute)
+  - **Style**: Quotes, semicolons, trailing commas, indentation
+  - **Framework-Specific**: React hooks, Vue composables, Nuxt conventions
+
+- **Severity Levels**:
+  - **Error**: Critical violations that break functionality or best practices
+  - **Warning**: Important consistency issues affecting maintainability
+  - **Info**: Style preferences for improved consistency
+
+- **Framework-Specific Rules**:
+
+  **React/React Native**:
+  - Hooks must start with `use` prefix (useAuth, useState, useEffect)
+  - Components in PascalCase
+  - Custom hooks in hooks/ directory
+
+  **Vue 3/Nuxt 3**:
+  - Composables must start with `use` prefix
+  - Components in components/ directory
+  - Auto-import awareness (Nuxt 3)
+
+  **All Frameworks**:
+  - Utility functions in camelCase
+  - Constants in SCREAMING_SNAKE_CASE
+  - Types/Interfaces in PascalCase
+
+- **Auto-Fix Capabilities**:
+
+  **Safe Auto-Fixes** (can be applied automatically):
+  - Rename files to match casing conventions
+  - Reorder imports by type (external, internal, relative)
+  - Replace quote styles (single ↔ double)
+  - Add blank lines between import groups
+
+  **Manual Fixes** (suggestions provided):
+  - Convert absolute imports to relative (or vice versa)
+  - Restructure file organization
+  - Fix complex naming violations
+
+- **Consistency Scoring**:
+  - Overall consistency score (0-100%)
+  - Per-category scores (naming, imports, style, etc.)
+  - Strengths: Categories with ≥90% consistency
+  - Weaknesses: Categories with <70% consistency
+
+**Example Output:**
+
+```json
+{
+  "project": {
+    "name": "MyProject",
+    "framework": "react",
+    "totalFiles": 85
+  },
+  "detectedConventions": [
+    {
+      "category": "naming",
+      "rule": "Component naming",
+      "pattern": "PascalCase",
+      "confidence": 0.95,
+      "occurrences": 42,
+      "examples": [
+        "src/components/Dashboard.tsx",
+        "src/components/UserProfile.tsx",
+        "src/screens/HomeScreen.tsx"
+      ]
+    },
+    {
+      "category": "naming",
+      "rule": "Hook naming",
+      "pattern": "use[A-Z][a-zA-Z]+",
+      "confidence": 0.98,
+      "occurrences": 12,
+      "examples": ["useAuth.ts", "useData.ts", "useLocalStorage.ts"]
+    },
+    {
+      "category": "imports",
+      "rule": "Import style",
+      "pattern": "relative",
+      "confidence": 0.85,
+      "occurrences": 156,
+      "examples": [
+        "import { Button } from './components/Button'",
+        "import { useAuth } from '../hooks/useAuth'"
+      ]
+    },
+    {
+      "category": "style",
+      "rule": "Quote style",
+      "pattern": "single",
+      "confidence": 0.92,
+      "occurrences": 487,
+      "examples": [
+        "const name = 'value';",
+        "import React from 'react';"
+      ]
+    }
+  ],
+  "conventions": {
+    "naming": {
+      "components": {
+        "pattern": "PascalCase",
+        "description": "Components should use PascalCase",
+        "examples": ["Dashboard", "UserProfile", "HomeScreen"]
+      },
+      "hooks": {
+        "pattern": "use[A-Z][a-zA-Z]+",
+        "description": "Hooks should start with 'use' followed by PascalCase name",
+        "examples": ["useAuth", "useData"]
+      }
+    },
+    "imports": {
+      "grouping": true,
+      "order": ["external", "internal", "relative"],
+      "style": "relative"
+    },
+    "style": {
+      "quotes": "single",
+      "semicolons": true
+    }
+  },
+  "violations": [
+    {
+      "file": "src/components/user-settings.tsx",
+      "line": null,
+      "column": null,
+      "category": "naming",
+      "severity": "warning",
+      "rule": "Component naming",
+      "message": "File name should use PascalCase",
+      "expected": "PascalCase (e.g., MyComponent)",
+      "actual": "user-settings",
+      "autoFixable": true,
+      "autoFix": {
+        "type": "rename",
+        "description": "Rename to UserSettings",
+        "currentValue": "user-settings",
+        "newValue": "UserSettings",
+        "safe": true,
+        "preview": "user-settings → UserSettings"
+      }
+    },
+    {
+      "file": "src/hooks/getUser.ts",
+      "category": "naming",
+      "severity": "warning",
+      "rule": "Hook naming",
+      "message": "File name should use PascalCase",
+      "expected": "use[A-Z][a-zA-Z]+",
+      "actual": "getUser",
+      "autoFixable": true,
+      "autoFix": {
+        "type": "rename",
+        "description": "Rename to useUser (hooks should start with 'use')",
+        "currentValue": "getUser",
+        "newValue": "useUser",
+        "safe": true
+      }
+    },
+    {
+      "file": "src/components/Dashboard.tsx",
+      "line": 5,
+      "category": "imports",
+      "severity": "info",
+      "rule": "Import grouping",
+      "message": "Imports should be grouped by type (external, internal, relative)",
+      "autoFixable": true,
+      "autoFix": {
+        "type": "reorder",
+        "description": "Group imports by type with blank lines",
+        "safe": true
+      }
+    },
+    {
+      "file": "src/utils/api-client.ts",
+      "line": 42,
+      "category": "style",
+      "severity": "info",
+      "rule": "Quote style",
+      "message": "Project uses single quotes",
+      "expected": "single quotes (')",
+      "actual": "double quotes (\")",
+      "autoFixable": true,
+      "autoFix": {
+        "type": "replace",
+        "description": "Replace double quotes with single quotes",
+        "safe": true
+      }
+    }
+  ],
+  "consistency": {
+    "overall": 87,
+    "byCategory": {
+      "naming": 85,
+      "structure": 100,
+      "imports": 78,
+      "exports": 100,
+      "style": 92,
+      "framework-specific": 95
+    },
+    "strengths": [
+      "structure: 100% consistent",
+      "exports: 100% consistent",
+      "framework-specific: 95% consistent",
+      "style: 92% consistent"
+    ],
+    "weaknesses": [
+      "imports: 78% consistent"
+    ]
+  },
+  "summary": {
+    "totalViolations": 18,
+    "byCategory": {
+      "naming": 5,
+      "structure": 0,
+      "imports": 8,
+      "exports": 0,
+      "style": 5,
+      "framework-specific": 0
+    },
+    "bySeverity": {
+      "error": 0,
+      "warning": 5,
+      "info": 13
+    },
+    "autoFixableCount": 15
+  },
+  "autoFixSuggestions": [
+    {
+      "category": "naming",
+      "severity": "warning",
+      "affectedFiles": [
+        "src/components/user-settings.tsx",
+        "src/hooks/getUser.ts"
+      ],
+      "description": "Fix Component naming violations in 2 file(s)",
+      "fixes": [
+        {
+          "type": "rename",
+          "description": "Rename to UserSettings",
+          "currentValue": "user-settings",
+          "newValue": "UserSettings",
+          "safe": true,
+          "preview": "user-settings → UserSettings"
+        },
+        {
+          "type": "rename",
+          "description": "Rename to useUser",
+          "currentValue": "getUser",
+          "newValue": "useUser",
+          "safe": true
+        }
+      ],
+      "estimatedImpact": "low",
+      "safe": true
+    },
+    {
+      "category": "imports",
+      "severity": "info",
+      "affectedFiles": [
+        "src/components/Dashboard.tsx",
+        "src/components/UserProfile.tsx",
+        "src/hooks/useAuth.ts"
+      ],
+      "description": "Fix Import grouping violations in 3 file(s)",
+      "fixes": [
+        {
+          "type": "reorder",
+          "description": "Group imports by type with blank lines",
+          "safe": true
+        }
+      ],
+      "estimatedImpact": "low",
+      "safe": true
+    }
+  ],
+  "recommendations": [
+    "Good consistency (87%), but there's room for improvement.",
+    "Found 5 naming inconsistencies. Consider using a consistent casing style for components.",
+    "Found 8 import style inconsistencies. Use a tool like ESLint to enforce import ordering.",
+    "15 violations can be auto-fixed. Run with applyAutoFixes: true to fix them."
+  ],
+  "metadata": {
+    "analyzedAt": "2025-10-09T15:45:00.000Z",
+    "filesAnalyzed": 85
+  }
+}
+```
+
+**Use Cases:**
+
+1. **Enforce Project Standards**:
+   - Ensure all team members follow the same conventions
+   - Catch inconsistencies during code review
+   - CI/CD integration for automated checks
+
+2. **Onboard New Developers**:
+   - Auto-detect and document existing conventions
+   - Provide clear examples of project patterns
+   - Immediate feedback on convention violations
+
+3. **Refactor Legacy Code**:
+   - Identify inconsistencies across the codebase
+   - Generate auto-fix suggestions for bulk updates
+   - Track consistency improvements over time
+
+4. **Framework Migration**:
+   - Validate Vue 3 composable naming (use* prefix)
+   - Ensure React hooks follow conventions
+   - Verify Nuxt 3 auto-import patterns
+
+5. **Pre-Commit Hooks**:
+   - Validate conventions before commit
+   - Auto-fix safe violations
+   - Block commits with critical violations
+
+**Workflow Examples:**
+
+```typescript
+// 1. Initial analysis - detect what conventions exist
+code_validate_conventions({
+  projectPath: "/path/to/project",
+  autodetectConventions: true
+});
+// → Returns detected patterns with confidence scores
+
+// 2. Validate against detected conventions
+code_validate_conventions({
+  projectPath: "/path/to/project",
+  autodetectConventions: true,
+  severity: "warning"  // Only show warnings and errors
+});
+// → Returns violations with severity ≥ warning
+
+// 3. Generate auto-fix suggestions
+code_validate_conventions({
+  projectPath: "/path/to/project",
+  autodetectConventions: true,
+  autoFix: true
+});
+// → Returns violations with auto-fix suggestions
+
+// 4. Apply safe auto-fixes (renames, reordering)
+code_validate_conventions({
+  projectPath: "/path/to/project",
+  autodetectConventions: true,
+  autoFix: true,
+  applyAutoFixes: true  // ⚠️ Actually modifies files
+});
+// → Applies safe fixes automatically
+
+// 5. Validate against custom conventions
+code_validate_conventions({
+  projectPath: "/path/to/project",
+  conventions: {
+    naming: {
+      components: {
+        pattern: "kebab-case",
+        description: "Components use kebab-case"
+      }
+    }
+  }
+});
+// → Validates against your specific rules
 ```
 
 #### 6. `code_generate_context_pack`

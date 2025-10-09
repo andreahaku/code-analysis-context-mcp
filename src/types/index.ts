@@ -709,3 +709,157 @@ export interface CoverageAnalysisParams {
   suggestTests?: boolean;
   analyzeComplexity?: boolean;
 }
+
+// Convention Validation types
+export type ConventionCategory =
+  | "naming"
+  | "structure"
+  | "imports"
+  | "exports"
+  | "style"
+  | "framework-specific";
+
+export type ViolationSeverity = "error" | "warning" | "info";
+
+export type CasingStyle = "PascalCase" | "camelCase" | "kebab-case" | "snake_case" | "SCREAMING_SNAKE_CASE";
+
+export type ImportStyle = "relative" | "absolute" | "mixed";
+export type QuoteStyle = "single" | "double" | "mixed";
+
+export interface NamingConvention {
+  pattern: string; // Regex pattern or special keywords like "PascalCase"
+  description: string;
+  examples?: string[];
+  exceptions?: string[]; // File patterns that are exempt
+}
+
+export interface FileStructureConvention {
+  directory: string;
+  allowedExtensions: string[];
+  namingPattern?: string;
+  required?: boolean; // Must exist
+  description: string;
+}
+
+export interface ImportConvention {
+  order?: string[]; // e.g., ["external", "internal", "relative"]
+  grouping?: boolean; // Group imports by type
+  style?: ImportStyle;
+  aliases?: Record<string, string>; // e.g., "@/*": "src/*"
+  noCircular?: boolean;
+}
+
+export interface StyleConvention {
+  quotes?: QuoteStyle;
+  semicolons?: boolean;
+  trailingCommas?: boolean;
+  indentation?: "tabs" | "spaces";
+  indentSize?: number;
+}
+
+export interface ProjectConventions {
+  naming?: {
+    components?: NamingConvention;
+    hooks?: NamingConvention;
+    composables?: NamingConvention;
+    utilities?: NamingConvention;
+    constants?: NamingConvention;
+    types?: NamingConvention;
+    files?: NamingConvention;
+    directories?: NamingConvention;
+  };
+  structure?: {
+    directories?: FileStructureConvention[];
+    fileOrganization?: string; // "feature-based" | "layer-based" | "domain-based"
+  };
+  imports?: ImportConvention;
+  style?: StyleConvention;
+  framework?: {
+    [key: string]: any; // Framework-specific rules
+  };
+}
+
+export interface ConventionViolation {
+  file: string;
+  line?: number;
+  column?: number;
+  category: ConventionCategory;
+  severity: ViolationSeverity;
+  rule: string;
+  message: string;
+  expected?: string;
+  actual?: string;
+  autoFixable?: boolean;
+  autoFix?: AutoFix;
+}
+
+export interface AutoFix {
+  type: "rename" | "reorder" | "replace" | "insert" | "delete";
+  description: string;
+  currentValue?: string;
+  newValue?: string;
+  safe: boolean; // Safe to apply automatically
+  preview?: string; // Preview of the fix
+}
+
+export interface DetectedConvention {
+  category: ConventionCategory;
+  rule: string;
+  pattern: string;
+  confidence: number; // 0-1
+  occurrences: number;
+  examples: string[];
+}
+
+export interface ConsistencyScore {
+  overall: number; // 0-100
+  byCategory: Record<ConventionCategory, number>;
+  strengths: string[];
+  weaknesses: string[];
+}
+
+export interface ConventionValidationResult {
+  project: {
+    name: string;
+    framework: FrameworkType;
+    totalFiles: number;
+  };
+  detectedConventions?: DetectedConvention[];
+  conventions: ProjectConventions;
+  violations: ConventionViolation[];
+  consistency: ConsistencyScore;
+  summary: {
+    totalViolations: number;
+    byCategory: Record<ConventionCategory, number>;
+    bySeverity: Record<ViolationSeverity, number>;
+    autoFixableCount: number;
+  };
+  autoFixSuggestions?: AutoFixSuggestion[];
+  recommendations: string[];
+  metadata: {
+    analyzedAt: string;
+    filesAnalyzed: number;
+  };
+}
+
+export interface AutoFixSuggestion {
+  category: ConventionCategory;
+  severity: ViolationSeverity;
+  affectedFiles: string[];
+  description: string;
+  fixes: AutoFix[];
+  estimatedImpact: "low" | "medium" | "high";
+  safe: boolean;
+}
+
+export interface ConventionValidationParams {
+  projectPath?: string;
+  includeGlobs?: string[];
+  excludeGlobs?: string[];
+  conventions?: ProjectConventions;
+  autodetectConventions?: boolean;
+  severity?: ViolationSeverity; // Minimum severity to report
+  autoFix?: boolean; // Generate auto-fix suggestions
+  applyAutoFixes?: boolean; // Actually apply safe fixes
+  framework?: FrameworkType;
+}
