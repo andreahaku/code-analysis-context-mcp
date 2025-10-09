@@ -430,3 +430,61 @@ export interface PatternAnalysisParams {
   compareWithBestPractices?: boolean;
   suggestImprovements?: boolean;
 }
+
+// Dependency Analysis types
+export interface CircularDependency {
+  cycle: string[];
+  severity: "critical" | "warning";
+  description: string;
+}
+
+export interface DependencyHotspot {
+  file: string;
+  inDegree: number;
+  outDegree: number;
+  centrality: number;
+  type: "hub" | "bottleneck" | "god-object";
+  description: string;
+}
+
+export interface DependencyMetrics {
+  totalModules: number;
+  avgDependencies: number;
+  maxDependencies: number;
+  coupling: number; // Afferent + Efferent coupling
+  cohesion: number; // LCOM metric
+  stability: number; // Ce / (Ca + Ce)
+  abstractness?: number;
+  distance?: number; // Distance from main sequence
+}
+
+export interface DependencyAnalysisResult {
+  project: {
+    name: string;
+    totalFiles: number;
+  };
+  graph: DependencyGraph;
+  circularDependencies: CircularDependency[];
+  metrics: DependencyMetrics;
+  hotspots: DependencyHotspot[];
+  diagram?: string;
+  recommendations: string[];
+  summary: {
+    totalDependencies: number;
+    averageDepth: number;
+    isolatedModules: number;
+    circularCount: number;
+  };
+}
+
+export interface DependencyAnalysisParams {
+  projectPath?: string;
+  includeGlobs?: string[];
+  excludeGlobs?: string[];
+  depth?: number;
+  detectCircular?: boolean;
+  calculateMetrics?: boolean;
+  generateDiagram?: boolean;
+  focusModule?: string;
+  includeExternal?: boolean;
+}

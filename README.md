@@ -62,6 +62,7 @@ Generate comprehensive architectural overview:
 ```
 
 **New Features**:
+
 - **Per-file metrics**: Set `includeDetailedMetrics: true` to get complexity, lines, imports/exports, and patterns
 - **Auto-optimization**: For projects >100 files, automatically filters to complexity ≥ 10 (top 50 files) to reduce response size
 - **Complexity filtering**: Use `minComplexity` to only show files above a threshold (e.g., 15 for refactoring candidates)
@@ -70,6 +71,7 @@ Generate comprehensive architectural overview:
 - Files automatically sorted by complexity (most complex first)
 
 **Response Size Optimization**:
+
 - Small projects (<100 files): Returns all files (~5-10k tokens)
 - Large projects (>100 files): Auto-filters to complexity ≥ 10, top 50 files (~3-5k tokens) ⭐
 - Override with explicit `minComplexity: 0` or `maxDetailedFiles: 999` if you need all files
@@ -89,6 +91,7 @@ Store analysis results in the llm_memory MCP for persistent project knowledge:
 This returns structured `memorySuggestions` that Claude Code can store across different scopes:
 
 **Example Output:**
+
 ```json
 {
   "memorySuggestions": [
@@ -122,6 +125,7 @@ This returns structured `memorySuggestions` that Claude Code can store across di
 ```
 
 **Memory Scopes:**
+
 - **global**: Reusable knowledge across all projects (framework patterns, best practices)
 - **local**: Current session context (architecture overview, metrics)
 - **committed**: Project-persistent, team-visible (high-complexity files, stores config)
@@ -133,34 +137,155 @@ After receiving memory suggestions, Claude Code can store them:
 ```typescript
 // Claude Code automatically calls llm_memory MCP for each suggestion
 memory_upsert({
-  "scope": "committed",
-  "type": "insight",
-  "title": "High Complexity Files in MyProject",
-  "text": "Critical refactoring targets...",
-  "tags": ["complexity", "refactoring", "technical-debt", "nuxt3"],
-  "files": ["src/services/Tracking.ts"],
-  "confidence": 0.9
-})
+  scope: "committed",
+  type: "insight",
+  title: "High Complexity Files in MyProject",
+  text: "Critical refactoring targets...",
+  tags: ["complexity", "refactoring", "technical-debt", "nuxt3"],
+  files: ["src/services/Tracking.ts"],
+  confidence: 0.9,
+});
 ```
 
 **Benefits:**
+
 - 📝 Persistent project knowledge survives conversation compacting
 - 🎯 Critical insights available across sessions (high-complexity files, architecture decisions)
 - 🌍 Reusable patterns stored globally (framework best practices)
 - 👥 Team-visible technical debt tracking (committed scope)
 
-
 #### 2. `code_analyze_dependency_graph`
 
-Visualize and analyze module dependencies:
+Visualize and analyze module dependencies with circular dependency detection, coupling metrics, and dependency hotspot identification:
 
 ```typescript
 {
   "projectPath": "/path/to/project",
-  "detectCircular": true,
-  "generateDiagram": true
+  "includeGlobs": ["src/**/*.{ts,tsx,js,jsx,vue}"],
+  "excludeGlobs": ["**/node_modules/**", "**/*.test.*"],
+  "detectCircular": true,           // Detect circular dependencies
+  "calculateMetrics": true,          // Calculate coupling/cohesion/stability
+  "generateDiagram": true,           // Generate Mermaid diagram
+  "focusModule": "src/services",     // Focus on specific module
+  "depth": 3,                        // Maximum dependency depth
+  "includeExternal": false           // Include node_modules dependencies
 }
 ```
+
+**Features:**
+
+- **Circular Dependency Detection**: Uses DFS with recursion stack to identify cycles
+  - Critical severity for short cycles (≤3 modules)
+  - Warning severity for longer cycles
+  - Provides cycle path visualization (A → B → C → A)
+
+- **Dependency Metrics**:
+  - **Coupling**: Average of (inDegree + outDegree) across all modules
+  - **Cohesion**: Inverse of average fanout (simplified LCOM)
+  - **Stability**: Ce / (Ca + Ce) where Ce = efferent, Ca = afferent coupling
+  - Average dependencies per module
+  - Maximum dependencies (highest fanout)
+
+- **Hotspot Identification**:
+  - **Hubs**: Modules with high in-degree (≥5 dependents) → Core utilities
+  - **Bottlenecks**: Modules with high out-degree (≥10 dependencies) → Refactoring candidates
+  - **God Objects**: High in both directions → Architecture issues
+
+- **Mermaid Diagram Generation**:
+  - Color-coded nodes (green=hub, pink=god object, yellow=bottleneck)
+  - Dotted lines for circular dependencies
+  - Dynamic import indicators
+  - Module type classification (component/hook/utility/service/store/composable)
+
+- **Module Focusing**: BFS-based filtering to analyze specific module and its dependencies
+- **Depth Limiting**: Control analysis depth for large projects
+
+**Example Output:**
+
+```json
+{
+  "project": {
+    "name": "MyProject",
+    "totalFiles": 120
+  },
+  "graph": {
+    "nodes": [
+      {
+        "id": "src/utils/api-client.ts",
+        "path": "src/utils/api-client.ts",
+        "type": "service",
+        "exports": ["ApiClient", "fetchData"],
+        "metrics": {
+          "inDegree": 15,  // 15 modules depend on this
+          "outDegree": 3,
+          "centrality": 0.15
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": "src/components/Dashboard.tsx",
+        "to": "src/utils/api-client.ts",
+        "type": "import",
+        "imports": ["ApiClient", "fetchData"]
+      }
+    ]
+  },
+  "circularDependencies": [
+    {
+      "cycle": ["src/services/auth.ts", "src/services/user.ts", "src/services/auth.ts"],
+      "severity": "critical",
+      "description": "Circular dependency detected: src/services/auth.ts → src/services/user.ts → src/services/auth.ts"
+    }
+  ],
+  "metrics": {
+    "totalModules": 120,
+    "avgDependencies": 4.5,
+    "maxDependencies": 18,
+    "coupling": 9.2,
+    "cohesion": 0.22,
+    "stability": 0.45
+  },
+  "hotspots": [
+    {
+      "file": "src/utils/api-client.ts",
+      "inDegree": 15,
+      "outDegree": 3,
+      "centrality": 0.15,
+      "type": "hub",
+      "description": "Core module: 15 modules depend on this"
+    },
+    {
+      "file": "src/components/Dashboard.tsx",
+      "inDegree": 2,
+      "outDegree": 18,
+      "centrality": 0.167,
+      "type": "bottleneck",
+      "description": "Potential bottleneck: depends on 18 modules"
+    }
+  ],
+  "diagram": "graph TD\n  N0[\"api-client.ts\"]:::hub\n  N1[\"Dashboard.tsx\"]:::bottleneck\n  ...",
+  "recommendations": [
+    "⚠️ CRITICAL: Found 1 circular dependencies. These can cause runtime errors and make code hard to maintain.",
+    "High coupling detected (9.20). Consider applying dependency inversion and interface segregation principles.",
+    "Some modules depend on 18 other modules. Consider reducing dependencies through better abstractions."
+  ],
+  "summary": {
+    "totalDependencies": 540,
+    "averageDepth": 3.2,
+    "isolatedModules": 5,
+    "circularCount": 1
+  }
+}
+```
+
+**Use Cases:**
+
+1. **Identify Core Utilities**: Find hub modules that are heavily imported
+2. **Detect Refactoring Candidates**: Bottleneck modules with too many dependencies
+3. **Fix Architecture Issues**: Circular dependencies and god objects
+4. **Assess Modularity**: Coupling and stability metrics
+5. **Visualize Dependencies**: Mermaid diagrams for team discussions
 
 #### 3. `code_analyze_patterns`
 
@@ -179,6 +304,7 @@ Detect framework-specific patterns, custom implementations, and antipatterns:
 **Detected Patterns:**
 
 **React & React Native:**
+
 - **Hooks**: Standard (useState, useEffect, etc.) and custom hooks
 - **HOCs**: Higher-Order Components (withAuth, withRouter)
 - **Render Props**: Components using render/children function props
@@ -186,25 +312,29 @@ Detect framework-specific patterns, custom implementations, and antipatterns:
 - **Context Providers**: Context API usage
 
 **Vue 3 & Nuxt 3:**
-- **Composables**: Composition API functions (use* pattern)
+
+- **Composables**: Composition API functions (use\* pattern)
 - **Pinia Stores**: Store definitions with state/getters/actions
 - **Vue Plugins**: Plugins with install functions
-- **Vue Directives**: Custom v-* directives
+- **Vue Directives**: Custom v-\* directives
 - **Nuxt Modules**: Module definitions (defineNuxtModule)
 - **Nuxt Middleware**: Route middleware patterns
 
 **Common Patterns:**
+
 - **Data Fetching**: fetch, axios, useFetch, useQuery patterns
 - **Error Handling**: try-catch blocks, Error Boundaries
 - **Forms**: useForm, Formik, native form patterns
 
 **Parameters:**
+
 - `patternTypes`: Filter specific pattern types to detect
 - `detectCustomPatterns`: Identify frequently used custom patterns (≥3 files)
 - `compareWithBestPractices`: Compare against industry standards
 - `suggestImprovements`: Get detailed refactoring recommendations
 
 **Example Output:**
+
 ```json
 {
   "project": {
@@ -357,6 +487,7 @@ When you use `includeDetailedMetrics: true` in the architecture analysis, you'll
 ```
 
 **Key Benefits:**
+
 - **Identify complexity hotspots**: Files are sorted by complexity (highest first)
 - **Guide refactoring**: Target files with high complexity for improvement
 - **Track technical debt**: Monitor complexity trends over time
@@ -366,30 +497,31 @@ When you use `includeDetailedMetrics: true` in the architecture analysis, you'll
 
 ### 1. Find High Complexity Files for Refactoring
 
-Ask Claude Code: *"Find the most complex files in my project that need refactoring"*
+Ask Claude Code: _"Find the most complex files in my project that need refactoring"_
 
 **Optimized approach** (filters at source, reduces response size):
 
 ```typescript
 code_analyze_architecture({
-  "projectPath": "/path/to/project",
-  "includeDetailedMetrics": true,
-  "minComplexity": 15,        // Only files with complexity >= 15
-  "maxDetailedFiles": 20      // Top 20 most complex files
-})
+  projectPath: "/path/to/project",
+  includeDetailedMetrics: true,
+  minComplexity: 15, // Only files with complexity >= 15
+  maxDetailedFiles: 20, // Top 20 most complex files
+});
 ```
 
 **Previous approach** (returns all files, larger response):
 
 ```typescript
 code_analyze_architecture({
-  "projectPath": "/path/to/project",
-  "includeDetailedMetrics": true
+  projectPath: "/path/to/project",
+  includeDetailedMetrics: true,
   // Claude then filters the results manually
-})
+});
 ```
 
 **Example workflow:**
+
 1. Identify files with cyclomatic complexity > 50
 2. Break down complex functions into smaller units
 3. Extract reusable logic into hooks/composables
@@ -397,9 +529,10 @@ code_analyze_architecture({
 
 ### 2. Onboarding New Team Members
 
-Ask Claude Code: *"Analyze the architecture of this project and explain the key components"*
+Ask Claude Code: _"Analyze the architecture of this project and explain the key components"_
 
 The tool provides:
+
 - Complete layer architecture (Pages, Components, Composables, Stores, Server)
 - State management patterns (Pinia, Context API, etc.)
 - Navigation structure (file-based routing, React Navigation)
@@ -408,21 +541,21 @@ The tool provides:
 
 ### 3. Identify Files Needing Tests
 
-Ask Claude Code: *"Which files in my project have high complexity but no tests?"*
+Ask Claude Code: _"Which files in my project have high complexity but no tests?"_
 
 Combine architecture analysis with coverage analysis:
 
 ```typescript
 // Step 1: Get complexity metrics
 code_analyze_architecture({
-  "includeDetailedMetrics": true
-})
+  includeDetailedMetrics: true,
+});
 
 // Step 2: Analyze test coverage
 code_analyze_coverage_gaps({
-  "coverageReportPath": "coverage/coverage-summary.json",
-  "priority": "high"
-})
+  coverageReportPath: "coverage/coverage-summary.json",
+  priority: "high",
+});
 
 // Claude will correlate high complexity files with missing tests
 ```
@@ -431,18 +564,19 @@ code_analyze_coverage_gaps({
 
 ### 4. Analyze Dependencies and Coupling
 
-Ask Claude Code: *"Show me files with the most dependencies and check for circular dependencies"*
+Ask Claude Code: _"Show me files with the most dependencies and check for circular dependencies"_
 
 ```typescript
 code_analyze_dependency_graph({
-  "projectPath": "/path/to/project",
-  "detectCircular": true,
-  "calculateMetrics": true,
-  "generateDiagram": true
-})
+  projectPath: "/path/to/project",
+  detectCircular: true,
+  calculateMetrics: true,
+  generateDiagram: true,
+});
 ```
 
 **What you'll learn:**
+
 - Files with highest in-degree (heavily imported) → Core utilities
 - Files with highest out-degree (many imports) → Potential for refactoring
 - Circular dependencies → Architecture issues to fix
@@ -450,35 +584,37 @@ code_analyze_dependency_graph({
 
 ### 5. Validate Project Conventions
 
-Ask Claude Code: *"Check if my project follows Nuxt 3 naming conventions"*
+Ask Claude Code: _"Check if my project follows Nuxt 3 naming conventions"_
 
 ```typescript
 code_validate_conventions({
-  "projectPath": "/path/to/project",
-  "autodetectConventions": true
-})
+  projectPath: "/path/to/project",
+  autodetectConventions: true,
+});
 ```
 
 **Checks for:**
+
 - Component naming (PascalCase)
-- Composables (use* prefix for Nuxt/Vue)
+- Composables (use\* prefix for Nuxt/Vue)
 - File structure (components/ vs screens/)
 - Import patterns (relative vs absolute)
 
 ### 6. Generate Context for AI-Assisted Development
 
-Ask Claude Code: *"I want to add authentication to my app. Give me the relevant context"*
+Ask Claude Code: _"I want to add authentication to my app. Give me the relevant context"_
 
 ```typescript
 code_generate_context_pack({
-  "task": "Add authentication with JWT tokens",
-  "projectPath": "/path/to/project",
-  "maxTokens": 50000,
-  "includeTypes": ["relevant-files", "architecture", "patterns", "conventions"]
-})
+  task: "Add authentication with JWT tokens",
+  projectPath: "/path/to/project",
+  maxTokens: 50000,
+  includeTypes: ["relevant-files", "architecture", "patterns", "conventions"],
+});
 ```
 
 **Result**: Optimized context pack with:
+
 - Relevant existing auth-related files
 - Project architecture overview
 - State management patterns in use
@@ -503,6 +639,7 @@ code_analyze_architecture > analysis-current.json
 ```
 
 **Metrics to track:**
+
 - Average complexity per file
 - Number of files with complexity > 50
 - Total lines of code
@@ -511,31 +648,125 @@ code_analyze_architecture > analysis-current.json
 
 ### 8. Pre-Commit Code Review
 
-Ask Claude Code: *"Analyze the files I just changed and identify any complexity or pattern issues"*
+Ask Claude Code: _"Analyze the files I just changed and identify any complexity or pattern issues"_
 
 ```typescript
 // Analyze specific files from git diff
 code_analyze_architecture({
-  "includeGlobs": ["src/components/Dashboard.tsx", "src/hooks/useAuth.ts"],
-  "includeDetailedMetrics": true
-})
+  includeGlobs: ["src/components/Dashboard.tsx", "src/hooks/useAuth.ts"],
+  includeDetailedMetrics: true,
+});
 ```
 
 **Automated checks:**
+
 - Complexity increase > 20 points → Review needed
 - New file complexity > 50 → Refactor before commit
 - Missing tests for complex logic → Add tests
 
-### 9. Store Analysis in LLM Memory for Persistent Context
+### 9. Analyze Dependencies and Detect Circular Dependencies
 
-Ask Claude Code: *"Analyze my project and store key insights in memory for future sessions"*
+Ask Claude Code: _"Analyze my project's dependencies and identify any circular dependencies or tightly coupled modules"_
+
+```typescript
+code_analyze_dependency_graph({
+  projectPath: "/path/to/project",
+  detectCircular: true,
+  calculateMetrics: true,
+  generateDiagram: true,
+});
+```
+
+**What you'll discover:**
+
+**1. Circular Dependencies:**
+```
+⚠️ CRITICAL: src/services/auth.ts → src/services/user.ts → src/services/auth.ts
+```
+- Short cycles (≤3 modules) are marked **critical** → Fix immediately
+- Longer cycles are **warnings** → Refactor when possible
+- **Fix strategies**:
+  - Extract shared types/interfaces
+  - Use dependency injection
+  - Create a shared utilities module
+
+**2. Dependency Hotspots:**
+- **Hub modules** (high in-degree): `src/utils/api-client.ts` (15 dependents)
+  - These are your core utilities
+  - Changes here impact many files
+  - Good candidates for comprehensive testing
+
+- **Bottleneck modules** (high out-degree): `src/components/Dashboard.tsx` (18 dependencies)
+  - Too many imports = complexity
+  - Consider splitting into smaller components
+  - Extract business logic into hooks/composables
+
+- **God objects** (high both ways): Files that are both heavily imported AND import many modules
+  - Clear architecture smell
+  - Should be refactored immediately
+  - Split responsibilities across multiple modules
+
+**3. Coupling Metrics:**
+```json
+{
+  "coupling": 9.2,      // High = tightly coupled
+  "cohesion": 0.22,     // Low = poor module organization
+  "stability": 0.45     // Low = many incoming dependencies
+}
+```
+- **High coupling** (>10): Apply dependency inversion principle
+- **Low cohesion** (<0.3): Modules have too many disparate responsibilities
+- **Low stability** (<0.3): Changes will ripple through codebase
+
+**4. Visual Analysis:**
+The Mermaid diagram shows:
+- 🟢 Green nodes = Hub modules (core utilities)
+- 🟡 Yellow nodes = Bottlenecks (refactoring candidates)
+- 🔴 Pink nodes = God objects (architecture issues)
+- Dotted lines = Circular dependencies
+
+**Example Workflow:**
+
+```bash
+# Step 1: Initial analysis
+code_analyze_dependency_graph({ detectCircular: true })
+
+# Output: Found 3 circular dependencies
+# - src/services/auth.ts ↔ src/services/user.ts
+# - src/hooks/useData.ts ↔ src/hooks/useCache.ts
+# - src/components/Form.tsx ↔ src/utils/validation.ts
+
+# Step 2: Focus on specific module to understand its dependencies
+code_analyze_dependency_graph({
+  focusModule: "src/services/auth.ts",
+  depth: 2
+})
+
+# Step 3: Fix circular dependencies
+# Extract shared interfaces, apply dependency injection
+
+# Step 4: Verify fix
+code_analyze_dependency_graph({ detectCircular: true })
+# Output: ✅ No circular dependencies detected
+```
+
+**Priority Fixes:**
+
+1. **Critical**: Circular dependencies with ≤3 modules
+2. **High**: God objects (files with both high in/out degree)
+3. **Medium**: Bottlenecks with >15 dependencies
+4. **Low**: General coupling improvements
+
+### 10. Store Analysis in LLM Memory for Persistent Context
+
+Ask Claude Code: _"Analyze my project and store key insights in memory for future sessions"_
 
 ```typescript
 code_analyze_architecture({
-  "projectPath": "/path/to/project",
-  "includeDetailedMetrics": true,
-  "generateMemorySuggestions": true
-})
+  projectPath: "/path/to/project",
+  includeDetailedMetrics: true,
+  generateMemorySuggestions: true,
+});
 ```
 
 **What gets stored:**
@@ -586,6 +817,7 @@ code_analyze_architecture({
 ```
 
 **Benefits:**
+
 - 💾 **Persistent Context**: Insights survive conversation compacting
 - ⚡ **Instant Retrieval**: No need to re-analyze project for known facts
 - 👥 **Team Knowledge**: Committed scope visible across team members
@@ -617,6 +849,7 @@ Create a `.code-analysis.json` file in your project root:
 ## Development Status
 
 ### Phase 1: Core Analysis ✅
+
 - [x] MCP server scaffold
 - [x] AST parser service (JS/TS/Vue SFC)
 - [x] Framework detection (React/RN/Vue/Nuxt)
@@ -625,6 +858,7 @@ Create a `.code-analysis.json` file in your project root:
 - [x] LLM memory integration
 
 ### Phase 2: Pattern Detection ✅
+
 - [x] React patterns (Hooks, HOCs, Render Props, Compound Components)
 - [x] Vue/Nuxt patterns (Composables, Pinia Stores, Plugins, Directives)
 - [x] Common patterns (Data Fetching, Error Handling, Forms)
@@ -633,10 +867,11 @@ Create a `.code-analysis.json` file in your project root:
 - [x] Custom pattern identification
 
 ### Phase 3-4: Advanced Features 🚧
+
+- [x] Full dependency graph analysis with circular detection
 - [ ] Coverage analysis with test scaffolding
 - [ ] Convention validation with auto-fix
 - [ ] Context pack optimization
-- [ ] Full dependency graph analysis
 
 ## Architecture
 
@@ -668,8 +903,8 @@ MIT
 
 ## Author
 
-Claude (Anthropic)
+Andrea Salvatore (@andreahaku) w/ Claude (Anthropic)
 
 ---
 
-*Version 0.1.0 | Multi-framework support for React, Vue, and Nuxt ecosystems*
+_Version 0.1.0 | Multi-framework support for React, Vue, and Nuxt ecosystems_
