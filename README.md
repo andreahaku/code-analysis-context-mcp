@@ -11,12 +11,35 @@ A sophisticated Model Context Protocol (MCP) server that provides deep codebase 
 - **✅ Convention Validation**: Validate adherence to project-specific naming and coding conventions
 - **🤖 Context Generation**: Build optimal AI context packs respecting token limits and maximizing relevance
 
-## Supported Frameworks
+## Supported Frameworks & Platforms
 
-- ✅ **React** - Hooks, Context API, HOCs
-- ✅ **React Native** - React Navigation, Expo patterns
-- ✅ **Vue 3** - Composition API, SFCs, provide/inject
-- ✅ **Nuxt 3** - Auto-imports, server routes, layers, Pinia
+### Web Frameworks
+
+- ✅ **React** - Hooks, Context API, HOCs, Render Props, Compound Components
+- ✅ **Vue 3** - Composition API, SFCs, Composables, provide/inject, Pinia stores
+- ✅ **Nuxt 3 & 4** - Auto-imports, file-based routing, server routes (Nitro), layouts, middleware, plugins, Pinia stores
+
+### Mobile Frameworks
+
+- ✅ **React Native** - React Navigation (Stack/Tab/Drawer), Platform-specific code, Native modules, Animations (Reanimated), Gesture handlers
+- ✅ **Expo** - Expo Router, Expo SDK, File-based routing, Platform features (Camera, Location, Notifications)
+
+### UI Libraries
+
+- ✅ **Nuxt UI 4** - Component detection (UButton, UCard, UInput, UModal), Theming patterns, Design system integration
+
+### Test Frameworks
+
+- ✅ **Vitest** - Test generation, coverage analysis, Vue/Nuxt testing with @vue/test-utils
+- ✅ **Jest** - Test scaffolding, React/React Native testing with Testing Library
+- ✅ **Playwright** - E2E testing patterns
+
+### State Management
+
+- ✅ **Pinia** - Store detection, test generation with setActivePinia
+- ✅ **Context API** - Provider patterns, hook-based state
+- ✅ **Zustand** - Store pattern detection
+- ✅ **Redux** - Action/reducer patterns
 
 ## Installation
 
@@ -48,9 +71,10 @@ Add to your MCP client configuration (e.g., Claude Desktop):
 
 Generate comprehensive architectural overview:
 
+**React / React Native projects:**
 ```typescript
 {
-  "projectPath": "/path/to/project",
+  "projectPath": "/path/to/react-project",
   "depth": "detailed",
   "analyzeTypes": ["components", "hooks", "navigation"],
   "generateDiagrams": true,
@@ -58,6 +82,21 @@ Generate comprehensive architectural overview:
   "includeDetailedMetrics": true,  // Include per-file metrics
   "minComplexity": 15,              // Only show files with complexity >= 15
   "maxDetailedFiles": 20            // Limit to top 20 most complex files
+}
+```
+
+**Nuxt 3/4 & Vue 3 projects:**
+```typescript
+{
+  "projectPath": "/path/to/nuxt-project",
+  "depth": "detailed",
+  "analyzeTypes": ["components", "composables", "stores", "server-routes", "layouts", "middleware"],
+  "framework": "nuxt3",             // or "vue3"
+  "generateDiagrams": true,
+  "includeMetrics": true,
+  "includeDetailedMetrics": true,
+  "minComplexity": 10,
+  "maxDetailedFiles": 30
 }
 ```
 
@@ -291,10 +330,22 @@ Visualize and analyze module dependencies with circular dependency detection, co
 
 Detect framework-specific patterns, custom implementations, and antipatterns:
 
+**React projects:**
 ```typescript
 {
-  "projectPath": "/path/to/project",
-  "patternTypes": ["hooks", "hoc", "composables", "pinia-stores"],
+  "projectPath": "/path/to/react-project",
+  "patternTypes": ["hooks", "hoc", "providers", "render-props"],
+  "detectCustomPatterns": true,
+  "compareWithBestPractices": true,
+  "suggestImprovements": true
+}
+```
+
+**Nuxt 3/Vue 3 projects:**
+```typescript
+{
+  "projectPath": "/path/to/nuxt-project",
+  "patternTypes": ["composables", "pinia-stores", "vue-plugins", "nuxt-modules", "nuxt-middleware"],
   "detectCustomPatterns": true,
   "compareWithBestPractices": true,
   "suggestImprovements": true
@@ -597,13 +648,19 @@ Identify untested code with meaningful, actionable test suggestions prioritized 
   });
   ```
 
-  **Vue Components** (`*.vue`):
+  **Vue 3 Components** (`*.vue`):
   ```typescript
-  import { describe, it, expect } from 'vitest';
-  import { mount } from '@vue/test-utils';
+  import { describe, it, expect, beforeEach } from 'vitest';
+  import { mount, flushPromises } from '@vue/test-utils';
+  import { mockNuxtImport } from '@nuxt/test-utils/runtime';
   import MyComponent from './MyComponent.vue';
 
   describe('MyComponent', () => {
+    beforeEach(() => {
+      // Reset mocks before each test (Nuxt projects)
+      vi.clearAllMocks();
+    });
+
     it('should mount successfully', () => {
       const wrapper = mount(MyComponent);
       expect(wrapper.exists()).toBe(true);
@@ -611,9 +668,150 @@ Identify untested code with meaningful, actionable test suggestions prioritized 
 
     it('should render with correct props', async () => {
       const wrapper = mount(MyComponent, {
-        props: { /* Add props */ }
+        props: { title: 'Test Title' }
       });
-      expect(wrapper.text()).toContain('expected text');
+      expect(wrapper.text()).toContain('Test Title');
+    });
+
+    it('should emit events correctly', async () => {
+      const wrapper = mount(MyComponent);
+      await wrapper.find('button').trigger('click');
+      expect(wrapper.emitted('submit')).toBeTruthy();
+    });
+
+    it('should work with Nuxt auto-imports', async () => {
+      const wrapper = mount(MyComponent);
+      // Test composables, navigateTo, etc.
+      await flushPromises();
+      expect(wrapper.vm).toBeDefined();
+    });
+  });
+  ```
+
+  **Vue 3 Composables** (`use*.ts` in composables/):
+  ```typescript
+  import { describe, it, expect, beforeEach } from 'vitest';
+  import { mockNuxtImport } from '@nuxt/test-utils/runtime';
+  import { useMyComposable } from './useMyComposable';
+
+  describe('useMyComposable', () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+    });
+
+    it('should return expected values', () => {
+      const result = useMyComposable();
+      expect(result).toBeDefined();
+      // Verify returned refs, computed, or functions
+    });
+
+    it('should handle reactive state correctly', () => {
+      const { count, increment } = useMyComposable();
+      increment();
+      expect(count.value).toBe(1);
+    });
+
+    it('should handle async operations', async () => {
+      const { data, fetchData } = useMyComposable();
+      await fetchData();
+      expect(data.value).toBeDefined();
+    });
+
+    it('should work with Nuxt auto-imports', () => {
+      // Test composables that use useRoute, useRouter, navigateTo, etc.
+      const result = useMyComposable();
+      expect(result).toBeDefined();
+    });
+  });
+  ```
+
+  **Pinia Stores** (`stores/*.ts`):
+  ```typescript
+  import { describe, it, expect, beforeEach } from 'vitest';
+  import { setActivePinia, createPinia } from 'pinia';
+  import { useMyStore } from './useMyStore';
+
+  describe('useMyStore', () => {
+    beforeEach(() => {
+      // Create a fresh pinia instance for each test
+      setActivePinia(createPinia());
+    });
+
+    it('should initialize with default state', () => {
+      const store = useMyStore();
+      expect(store.count).toBe(0);
+    });
+
+    it('should update state correctly', () => {
+      const store = useMyStore();
+      store.count = 10;
+      expect(store.count).toBe(10);
+    });
+
+    it('should compute derived state', () => {
+      const store = useMyStore();
+      store.count = 5;
+      expect(store.doubleCount).toBe(10);
+    });
+
+    it('should handle actions correctly', async () => {
+      const store = useMyStore();
+      await store.increment();
+      expect(store.count).toBe(1);
+    });
+  });
+  ```
+
+  **Nuxt Server Routes** (`server/api/*.ts`):
+  ```typescript
+  import { describe, it, expect, beforeEach } from 'vitest';
+  import { mockNuxtImport } from '@nuxt/test-utils/runtime';
+  import handler from './users';
+
+  describe('Server Route: users', () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+    });
+
+    it('should handle GET request', async () => {
+      const event = {
+        node: {
+          req: { method: 'GET', url: '/api/users' },
+          res: { statusCode: 200 }
+        }
+      };
+
+      const response = await handler(event);
+      expect(response).toBeDefined();
+      expect(Array.isArray(response)).toBe(true);
+    });
+
+    it('should handle POST request with body', async () => {
+      const event = {
+        node: {
+          req: { method: 'POST', url: '/api/users' },
+          res: { statusCode: 200 }
+        }
+      };
+
+      // Mock readBody
+      mockNuxtImport('readBody', () => vi.fn().mockResolvedValue({
+        name: 'Test User'
+      }));
+
+      const response = await handler(event);
+      expect(response).toBeDefined();
+    });
+
+    it('should handle errors gracefully', async () => {
+      const event = {
+        node: {
+          req: { method: 'GET', url: '/api/users' },
+          res: { statusCode: 200 }
+        }
+      };
+
+      expect(async () => await handler(event)).not.toThrow();
     });
   });
   ```
@@ -1226,13 +1424,29 @@ code_validate_conventions({
 
 Build optimal AI context packs for LLM tools (Claude Code, Codex, Cursor) by intelligently selecting and ranking files based on task relevance:
 
+**React projects:**
 ```typescript
 {
   "task": "Add authentication with JWT tokens and refresh logic",
-  "projectPath": "/path/to/project",
+  "projectPath": "/path/to/react-project",
   "maxTokens": 50000,
   "includeTypes": ["relevant-files", "architecture", "dependencies", "tests"],
-  "focusAreas": ["src/auth", "src/services"],
+  "focusAreas": ["src/auth", "src/hooks"],
+  "includeHistory": false,
+  "format": "markdown",
+  "includeLineNumbers": true,
+  "optimizationStrategy": "relevance"
+}
+```
+
+**Nuxt 3 projects:**
+```typescript
+{
+  "task": "Add user profile management with Pinia store",
+  "projectPath": "/path/to/nuxt-project",
+  "maxTokens": 50000,
+  "includeTypes": ["relevant-files", "architecture", "dependencies", "tests"],
+  "focusAreas": ["composables", "stores", "server"],
   "includeHistory": false,
   "format": "markdown",
   "includeLineNumbers": true,

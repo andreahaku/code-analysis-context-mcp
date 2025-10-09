@@ -677,7 +677,7 @@ export interface CoverageGap {
 }
 
 export interface TestSuggestion {
-  type: "unit" | "integration" | "component" | "hook" | "composable" | "e2e";
+  type: "unit" | "integration" | "component" | "hook" | "composable" | "store" | "server-route" | "e2e";
   framework: TestFramework;
   testFilePath: string;
   scaffold: string;

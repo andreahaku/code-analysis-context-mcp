@@ -269,6 +269,28 @@ function analyzeTask(task: string): TaskAnalysis {
     "ios",
     "android",
     "expo",
+    // Vue/Nuxt specific concepts
+    "plugin",
+    "module",
+    "directive",
+    "computed",
+    "reactive",
+    "ref",
+    "watch",
+    "pinia",
+    "vuex",
+    "vite",
+    "nitro",
+    "server",
+    "ssr",
+    "ssg",
+    "hydration",
+    "teleport",
+    "transition",
+    "suspense",
+    "emits",
+    "props",
+    "slots",
   ];
   for (const concept of frameworkPatterns) {
     if (lowerTask.includes(concept)) {
@@ -797,10 +819,27 @@ function extractConventions(architecture: any): string[] {
   if (architecture.project.type === "nuxt3") {
     conventions.push("Auto-imports enabled for composables and components");
     conventions.push("File-based routing in pages/ directory");
+    conventions.push("Server routes in server/ directory (Nitro engine)");
+    conventions.push("Layouts in layouts/ directory");
+    conventions.push("Middleware in middleware/ directory");
+    conventions.push("Plugins in plugins/ directory");
+    conventions.push("Vue 3 Composition API with <script setup>");
+    conventions.push("TypeScript support with auto-generated types");
+
+    if (architecture.serverRoutes && architecture.serverRoutes.total > 0) {
+      conventions.push("Server API routes handle backend logic");
+    }
+  }
+
+  if (architecture.project.type === "vue3") {
+    conventions.push("Vue 3 Composition API with <script setup>");
+    conventions.push("Single File Components (.vue)");
+    conventions.push("Composables in composables/ directory");
   }
 
   if (architecture.stateManagement.pattern === "pinia") {
     conventions.push("Pinia stores in stores/ directory");
+    conventions.push("Store composition pattern with setup() syntax");
   }
 
   // React Native / Expo conventions
@@ -835,18 +874,70 @@ function extractPatterns(files: ContextFile[]): string[] {
   const patterns = new Set<string>();
 
   for (const file of files) {
+    // React patterns
     if (file.content.includes("useState") || file.content.includes("useEffect")) {
       patterns.add("React Hooks");
     }
     if (file.content.includes("createContext")) {
       patterns.add("Context API");
     }
+
+    // Vue 3 Composition API patterns
+    if (file.content.includes("ref(") || file.content.includes("ref<")) {
+      patterns.add("Vue 3 Refs");
+    }
+    if (file.content.includes("reactive(") || file.content.includes("reactive<")) {
+      patterns.add("Vue 3 Reactive State");
+    }
+    if (file.content.includes("computed(") || file.content.includes("computed<")) {
+      patterns.add("Vue 3 Computed Properties");
+    }
+    if (file.content.includes("watch(") || file.content.includes("watchEffect(")) {
+      patterns.add("Vue 3 Watchers");
+    }
+    if (file.content.includes("<script setup")) {
+      patterns.add("Vue 3 Script Setup");
+    }
+
+    // Pinia patterns
     if (file.content.includes("defineStore")) {
       patterns.add("Pinia Stores");
     }
-    if (file.content.includes("useRouter") || file.content.includes("useRoute")) {
-      patterns.add("Vue Router");
+    if (file.content.includes("storeToRefs")) {
+      patterns.add("Pinia Store Refs");
     }
+
+    // Nuxt patterns
+    if (file.content.includes("useRouter") || file.content.includes("useRoute")) {
+      patterns.add("Vue Router / Nuxt Routing");
+    }
+    if (file.content.includes("useFetch") || file.content.includes("useAsyncData")) {
+      patterns.add("Nuxt Data Fetching");
+    }
+    if (file.content.includes("navigateTo") || file.content.includes("useNuxtApp")) {
+      patterns.add("Nuxt Auto-Imports");
+    }
+    if (file.content.includes("definePageMeta") || file.content.includes("defineNuxtComponent")) {
+      patterns.add("Nuxt Component Definitions");
+    }
+    if (file.content.includes("useRuntimeConfig") || file.content.includes("useAppConfig")) {
+      patterns.add("Nuxt Configuration");
+    }
+    if (file.content.includes("defineEventHandler") || file.content.includes("readBody")) {
+      patterns.add("Nuxt Server Routes");
+    }
+
+    // Nuxt UI 4 patterns
+    if (
+      file.content.includes("UButton") ||
+      file.content.includes("UCard") ||
+      file.content.includes("UInput") ||
+      file.content.includes("UModal")
+    ) {
+      patterns.add("Nuxt UI Components");
+    }
+
+    // General patterns
     if (file.content.includes("async") && file.content.includes("await")) {
       patterns.add("Async/Await");
     }
@@ -992,6 +1083,65 @@ function generateSuggestions(
 
     if (taskAnalysis.domainConcepts.some((c) => ["camera", "location", "push", "biometric"].includes(c))) {
       suggestions.push("🎯 Native feature integration - ensure proper permission handling and error states");
+    }
+  }
+
+  // Vue / Nuxt specific suggestions
+  if (architecture?.project?.type === "vue3" || architecture?.project?.type === "nuxt3") {
+    const hasComposables = files.some((f) => f.path.includes("composables/"));
+    if (hasComposables) {
+      suggestions.push("🔄 Composables detected - ensure reactive state is properly exported and reusable");
+    }
+
+    const hasStores = files.some((f) => f.path.includes("stores/") || f.content.includes("defineStore"));
+    if (hasStores) {
+      suggestions.push("📦 Pinia stores involved - verify state management patterns and store composition");
+    }
+
+    const hasServerRoutes = files.some((f) => f.path.includes("/server/"));
+    if (hasServerRoutes) {
+      suggestions.push("🖥️ Server routes detected - test API endpoints and error handling");
+    }
+
+    const hasVueComponents = files.some((f) => f.path.endsWith(".vue"));
+    if (hasVueComponents) {
+      suggestions.push("🎨 Vue components involved - check props, emits, and reactivity");
+    }
+
+    if (architecture?.project?.type === "nuxt3") {
+      const hasAutoImports = files.some(
+        (f) =>
+          f.content.includes("navigateTo") ||
+          f.content.includes("useFetch") ||
+          f.content.includes("useAsyncData")
+      );
+      if (hasAutoImports) {
+        suggestions.push("✨ Nuxt auto-imports used - verify TypeScript types are generated correctly");
+      }
+
+      const hasSSR = files.some((f) => f.content.includes("onServerPrefetch") || f.content.includes("useAsyncData"));
+      if (hasSSR) {
+        suggestions.push("🌐 SSR functionality detected - test both server and client rendering");
+      }
+
+      if (taskAnalysis.frameworkConcepts.includes("page")) {
+        suggestions.push("📄 Page component work - consider SEO, meta tags, and middleware");
+      }
+
+      const hasNuxtUI = files.some(
+        (f) =>
+          f.content.includes("UButton") ||
+          f.content.includes("UCard") ||
+          f.content.includes("UInput") ||
+          f.content.includes("UModal")
+      );
+      if (hasNuxtUI) {
+        suggestions.push("💎 Nuxt UI components detected - follow design system patterns and theming");
+      }
+    }
+
+    if (taskAnalysis.frameworkConcepts.some((c) => ["composable", "reactive", "ref"].includes(c))) {
+      suggestions.push("⚡ Composition API work - ensure proper unwrapping of refs and reactive objects");
     }
   }
 

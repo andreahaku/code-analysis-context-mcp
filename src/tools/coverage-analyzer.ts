@@ -765,6 +765,8 @@ async function generateTestSuggestions(
     const isComponent = filePath.endsWith(".tsx") || filePath.endsWith(".jsx") || filePath.endsWith(".vue");
     const isScreen = filePath.includes("screens") || filePath.includes("app/") && (projectFramework === "react-native" || projectFramework === "expo");
     const isHook = path.basename(filePath).startsWith("use") && (filePath.includes("hooks") || filePath.includes("composables"));
+    const isStore = filePath.includes("/stores/") || filePath.includes("/store/");
+    const isNuxtServerRoute = filePath.includes("/server/") && (filePath.includes("/api/") || filePath.includes("/routes/"));
     const isUtil = filePath.includes("utils") || filePath.includes("lib") || filePath.includes("helpers");
 
     // Generate appropriate test scaffold
@@ -783,6 +785,16 @@ async function generateTestSuggestions(
     } else if (isHook && projectFramework === "react") {
       suggestions.push(
         generateReactHookTest(gap, filePath, exports, testFramework, existingPatterns)
+      );
+    } else if (isStore && (projectFramework === "vue3" || projectFramework === "nuxt3")) {
+      // Pinia store test
+      suggestions.push(
+        generatePiniaStoreTest(gap, filePath, exports, testFramework, existingPatterns)
+      );
+    } else if (isNuxtServerRoute && projectFramework === "nuxt3") {
+      // Nuxt server route test
+      suggestions.push(
+        generateNuxtServerRouteTest(gap, filePath, exports, testFramework, existingPatterns)
       );
     } else if (isComponent && (projectFramework === "vue3" || projectFramework === "nuxt3")) {
       suggestions.push(
@@ -1096,11 +1108,20 @@ function generateVueComponentTest(
   const testPath = filePath.replace(".vue", ".test.ts");
   const importPath = "./" + path.basename(filePath);
 
-  const scaffold = `import { describe, it, expect } from '${framework}';
-import { mount } from '@vue/test-utils';
-import ${componentName} from '${importPath}';
+  // Check if it's a Nuxt component (might need auto-import setup)
+  const isNuxtProject = filePath.includes("components/") || filePath.includes("pages/");
 
-describe('${componentName}', () => {
+  const scaffold = `import { describe, it, expect${isNuxtProject ? ', beforeEach' : ''} } from '${framework}';
+import { mount${isNuxtProject ? ', flushPromises' : ''} } from '@vue/test-utils';
+${isNuxtProject ? `import { mockNuxtImport } from '@nuxt/test-utils/runtime';
+` : ''}import ${componentName} from '${importPath}';
+
+describe('${componentName}', () => {${isNuxtProject ? `
+  beforeEach(() => {
+    // Reset mocks before each test
+    vi.clearAllMocks();
+  });
+` : ''}
   it('should mount successfully', () => {
     const wrapper = mount(${componentName});
     expect(wrapper.exists()).toBe(true);
@@ -1109,17 +1130,50 @@ describe('${componentName}', () => {
   it('should render with correct props', async () => {
     const wrapper = mount(${componentName}, {
       props: {
-        // Add props
+        // Add component props
       }
     });
 
+    expect(wrapper.html()).toBeTruthy();
     expect(wrapper.text()).toContain('expected text');
   });
 
-  ${gap.untestedFunctions.map(fn => `
+  it('should emit events correctly', async () => {
+    const wrapper = mount(${componentName});
+
+    // Trigger event
+    // await wrapper.find('button').trigger('click');
+
+    // Check emitted events
+    // expect(wrapper.emitted('submit')).toBeTruthy();
+  });
+
+  it('should handle user interactions', async () => {
+    const wrapper = mount(${componentName});
+
+    // Simulate user interaction
+    // await wrapper.find('input').setValue('test value');
+
+    // Verify component state or DOM changes
+    expect(wrapper.vm).toBeDefined();
+  });
+${isNuxtProject ? `
+  it('should work with Nuxt auto-imports', async () => {
+    const wrapper = mount(${componentName});
+
+    // Test composables, navigateTo, etc.
+    await flushPromises();
+    expect(wrapper.vm).toBeDefined();
+  });
+` : ''}
+  ${gap.untestedFunctions.slice(0, 3).map(fn => `
   it('should handle ${fn.name} correctly', async () => {
     const wrapper = mount(${componentName});
+
     // Test ${fn.name} functionality
+    // await wrapper.vm.${fn.name}();
+
+    expect(wrapper.vm).toBeDefined();
   });`).join('\n')}
 });
 `;
@@ -1129,7 +1183,7 @@ describe('${componentName}', () => {
     framework,
     testFilePath: testPath,
     scaffold,
-    description: `Vue component test for ${componentName}`,
+    description: `Vue component test for ${componentName} with ${gap.untestedFunctions.length} untested functions`,
     priority: gap.priority,
     estimatedEffort: gap.complexity > 50 ? "high" : gap.complexity > 30 ? "medium" : "low",
   };
@@ -1149,19 +1203,57 @@ function generateVueComposableTest(
   const testPath = filePath.replace(/\.ts$/, ".test.ts");
   const importPath = "./" + path.basename(filePath, ".ts");
 
-  const scaffold = `import { describe, it, expect } from '${framework}';
-import { ${composableName} } from '${importPath}';
+  // Check if this is a Nuxt project (composables/ directory)
+  const isNuxtProject = filePath.includes("composables/");
 
-describe('${composableName}', () => {
+  const scaffold = `import { describe, it, expect${isNuxtProject ? ', beforeEach' : ''} } from '${framework}';
+${isNuxtProject ? `import { mockNuxtImport } from '@nuxt/test-utils/runtime';
+` : ''}import { ${composableName} } from '${importPath}';
+
+describe('${composableName}', () => {${isNuxtProject ? `
+  beforeEach(() => {
+    // Reset mocks before each test
+    vi.clearAllMocks();
+  });
+` : ''}
   it('should return expected values', () => {
     const result = ${composableName}();
+
     expect(result).toBeDefined();
+    // Verify returned refs, computed, or functions
   });
 
-  ${gap.untestedFunctions.map(fn => `
-  it('should handle ${fn.name} correctly', () => {
+  it('should handle reactive state correctly', () => {
+    const { /* destructure returned values */ } = ${composableName}();
+
+    // Test reactive state updates
+    // someRef.value = 'new value';
+    // expect(someComputed.value).toBe('expected');
+  });
+
+  it('should handle async operations', async () => {
     const result = ${composableName}();
+
+    // Test async functionality
+    // await result.fetchData();
+    // expect(result.data.value).toBeDefined();
+  });
+${isNuxtProject ? `
+  it('should work with Nuxt auto-imports', () => {
+    // Test composables that use useRoute, useRouter, navigateTo, etc.
+    const result = ${composableName}();
+
+    expect(result).toBeDefined();
+  });
+` : ''}
+  ${gap.untestedFunctions.slice(0, 3).map(fn => `
+  it('should handle ${fn.name} correctly', async () => {
+    const result = ${composableName}();
+
     // Test ${fn.name} functionality
+    // await result.${fn.name}();
+
+    expect(result).toBeDefined();
   });`).join('\n')}
 });
 `;
@@ -1171,9 +1263,177 @@ describe('${composableName}', () => {
     framework,
     testFilePath: testPath,
     scaffold,
-    description: `Composable test for ${composableName}`,
+    description: `Composable test for ${composableName} covering ${gap.untestedFunctions.length} functions`,
     priority: gap.priority,
-    estimatedEffort: "low",
+    estimatedEffort: gap.complexity > 30 ? "medium" : "low",
+  };
+}
+
+/**
+ * Generate Pinia store test scaffold
+ */
+function generatePiniaStoreTest(
+  gap: CoverageGap,
+  filePath: string,
+  exports: string[],
+  framework: TestFramework,
+  _patterns: ExistingTestPattern
+): TestSuggestion {
+  const storeName = exports[0] || "useStore";
+  const testPath = filePath.replace(/\.ts$/, ".test.ts");
+  const importPath = "./" + path.basename(filePath, ".ts");
+
+  const scaffold = `import { describe, it, expect, beforeEach } from '${framework}';
+import { setActivePinia, createPinia } from 'pinia';
+import { ${storeName} } from '${importPath}';
+
+describe('${storeName}', () => {
+  beforeEach(() => {
+    // Create a fresh pinia instance for each test
+    setActivePinia(createPinia());
+  });
+
+  it('should initialize with default state', () => {
+    const store = ${storeName}();
+
+    expect(store).toBeDefined();
+    // Verify initial state values
+  });
+
+  it('should update state correctly', () => {
+    const store = ${storeName}();
+
+    // Test state mutations
+    // store.someProperty = 'new value';
+    // expect(store.someProperty).toBe('new value');
+  });
+
+  it('should compute derived state', () => {
+    const store = ${storeName}();
+
+    // Test getters
+    // expect(store.someGetter).toBe('expected value');
+  });
+
+  it('should handle actions correctly', async () => {
+    const store = ${storeName}();
+
+    // Test actions
+    // await store.fetchData();
+    // expect(store.data).toBeDefined();
+  });
+
+  ${gap.untestedFunctions.slice(0, 3).map(fn => `
+  it('should handle ${fn.name} action', async () => {
+    const store = ${storeName}();
+
+    // Test ${fn.name} action
+    // await store.${fn.name}();
+
+    expect(store).toBeDefined();
+  });`).join('\n')}
+});
+`;
+
+  return {
+    type: "store",
+    framework,
+    testFilePath: testPath,
+    scaffold,
+    description: `Pinia store test for ${storeName} with ${gap.untestedFunctions.length} untested actions`,
+    priority: gap.priority,
+    estimatedEffort: gap.complexity > 30 ? "medium" : "low",
+  };
+}
+
+/**
+ * Generate Nuxt server route test scaffold
+ */
+function generateNuxtServerRouteTest(
+  gap: CoverageGap,
+  filePath: string,
+  _exports: string[],
+  framework: TestFramework,
+  _patterns: ExistingTestPattern
+): TestSuggestion {
+  const routeName = path.basename(filePath, path.extname(filePath));
+  const testPath = filePath.replace(/\.ts$/, ".test.ts");
+  const importPath = "./" + routeName;
+
+  const scaffold = `import { describe, it, expect, beforeEach } from '${framework}';
+import { mockNuxtImport } from '@nuxt/test-utils/runtime';
+import handler from '${importPath}';
+
+describe('Server Route: ${routeName}', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should handle GET request', async () => {
+    const event = {
+      node: {
+        req: { method: 'GET', url: '/api/test' },
+        res: { statusCode: 200 }
+      }
+    };
+
+    const response = await handler(event);
+
+    expect(response).toBeDefined();
+    // Verify response structure
+  });
+
+  it('should handle POST request with body', async () => {
+    const event = {
+      node: {
+        req: { method: 'POST', url: '/api/test' },
+        res: { statusCode: 200 }
+      }
+    };
+
+    // Mock readBody
+    // mockNuxtImport('readBody', () => vi.fn().mockResolvedValue({ data: 'test' }));
+
+    const response = await handler(event);
+
+    expect(response).toBeDefined();
+  });
+
+  it('should handle errors gracefully', async () => {
+    const event = {
+      node: {
+        req: { method: 'GET', url: '/api/test' },
+        res: { statusCode: 200 }
+      }
+    };
+
+    // Simulate error condition
+    expect(async () => await handler(event)).not.toThrow();
+  });
+
+  ${gap.untestedFunctions.slice(0, 2).map(fn => `
+  it('should test ${fn.name} logic', async () => {
+    const event = {
+      node: {
+        req: { method: 'GET', url: '/api/test' },
+        res: { statusCode: 200 }
+      }
+    };
+
+    const response = await handler(event);
+    expect(response).toBeDefined();
+  });`).join('\n')}
+});
+`;
+
+  return {
+    type: "server-route",
+    framework,
+    testFilePath: testPath,
+    scaffold,
+    description: `Nuxt server route test for ${routeName}`,
+    priority: gap.priority,
+    estimatedEffort: "medium",
   };
 }
 
@@ -1330,6 +1590,47 @@ function generateRecommendations(
 
       recommendations.push(
         `📱 React Native Testing: Remember to test navigation, user interactions with fireEvent.press(), and async operations with waitFor().`
+      );
+    }
+  }
+
+  // Vue / Nuxt specific recommendations
+  const vueComponentGaps = gaps.filter((g) => g.file.endsWith(".vue"));
+  if (vueComponentGaps.length > 0) {
+    const hasVueTestUtils = gaps.some((g) =>
+      g.testSuggestions.some((s) => s.scaffold?.includes("@vue/test-utils"))
+    );
+
+    if (hasVueTestUtils) {
+      recommendations.push(
+        `🎨 ${vueComponentGaps.length} Vue components lack tests. Use @vue/test-utils with mount() for component testing.`
+      );
+    }
+  }
+
+  const composableGaps = gaps.filter((g) => g.file.includes("/composables/"));
+  if (composableGaps.length > 0) {
+    recommendations.push(
+      `🔄 ${composableGaps.length} composables lack tests. Test reactive state, computed values, and async operations.`
+    );
+  }
+
+  const piniaStoreGaps = gaps.filter((g) => g.file.includes("/stores/") || g.file.includes("/store/"));
+  if (piniaStoreGaps.length > 0) {
+    recommendations.push(
+      `📦 ${piniaStoreGaps.length} Pinia stores lack tests. Test state initialization, getters, and actions with setActivePinia().`
+    );
+  }
+
+  const nuxtServerGaps = gaps.filter((g) => g.file.includes("/server/"));
+  if (nuxtServerGaps.length > 0) {
+    const hasNuxtTestUtils = gaps.some((g) =>
+      g.testSuggestions.some((s) => s.scaffold?.includes("@nuxt/test-utils"))
+    );
+
+    if (hasNuxtTestUtils) {
+      recommendations.push(
+        `🖥️ ${nuxtServerGaps.length} Nuxt server routes lack tests. Use @nuxt/test-utils for server-side testing.`
       );
     }
   }
