@@ -311,3 +311,122 @@ export interface DependencyGraph {
   nodes: DependencyNode[];
   edges: DependencyEdge[];
 }
+
+// Pattern Analysis types
+export interface PatternOccurrence {
+  name: string;
+  file: string;
+  line?: number;
+  type: PatternType;
+  confidence: number;
+  description: string;
+}
+
+export interface HOCPattern {
+  name: string;
+  file: string;
+  wrappedComponent?: string;
+  enhancedProps?: string[];
+}
+
+export interface RenderPropsPattern {
+  name: string;
+  file: string;
+  renderProp: string;
+  parameters?: string[];
+}
+
+export interface CompoundComponentPattern {
+  parent: string;
+  children: string[];
+  file: string;
+  sharedState?: string[];
+}
+
+export interface PiniaStorePattern {
+  name: string;
+  file: string;
+  state: string[];
+  getters: string[];
+  actions: string[];
+  usageCount: number;
+}
+
+export interface VuePluginPattern {
+  name: string;
+  file: string;
+  installFn: boolean;
+  provides?: string[];
+}
+
+export interface NuxtModulePattern {
+  name: string;
+  file: string;
+  setup: boolean;
+  hooks?: string[];
+}
+
+export interface Antipattern {
+  type: string;
+  file: string;
+  line?: number;
+  severity: "error" | "warning" | "info";
+  description: string;
+  suggestion: string;
+}
+
+export interface BestPracticeComparison {
+  pattern: string;
+  status: "follows" | "deviates" | "unknown";
+  details: string;
+  suggestions?: string[];
+}
+
+export interface PatternAnalysisResult {
+  project: {
+    name: string;
+    type: FrameworkType;
+    totalFiles: number;
+  };
+  patterns: {
+    hooks?: PatternOccurrence[];
+    hocs?: HOCPattern[];
+    renderProps?: RenderPropsPattern[];
+    compoundComponents?: CompoundComponentPattern[];
+    providers?: PatternOccurrence[];
+    customHooks?: PatternOccurrence[];
+    composables?: PatternOccurrence[];
+    piniaStores?: PiniaStorePattern[];
+    vuePlugins?: VuePluginPattern[];
+    nuxtModules?: NuxtModulePattern[];
+    nuxtMiddleware?: PatternOccurrence[];
+    vueDirectives?: PatternOccurrence[];
+    dataFetching?: PatternOccurrence[];
+    errorHandling?: PatternOccurrence[];
+    forms?: PatternOccurrence[];
+  };
+  customPatterns?: {
+    name: string;
+    occurrences: number;
+    files: string[];
+    description: string;
+  }[];
+  antipatterns?: Antipattern[];
+  bestPractices?: BestPracticeComparison[];
+  recommendations: string[];
+  summary: {
+    totalPatterns: number;
+    byType: Record<string, number>;
+    mostCommon: string[];
+  };
+}
+
+export interface PatternAnalysisParams {
+  projectPath?: string;
+  patternTypes?: PatternType[];
+  includeGlobs?: string[];
+  excludeGlobs?: string[];
+  detectCustomPatterns?: boolean;
+  compareWithBestPractices?: boolean;
+  suggestImprovements?: boolean;
+}
