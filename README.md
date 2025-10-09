@@ -164,13 +164,115 @@ Visualize and analyze module dependencies:
 
 #### 3. `code_analyze_patterns`
 
-Detect framework-specific patterns:
+Detect framework-specific patterns, custom implementations, and antipatterns:
 
 ```typescript
 {
   "projectPath": "/path/to/project",
-  "patternTypes": ["hooks", "composables", "pinia-stores"],
-  "compareWithBestPractices": true
+  "patternTypes": ["hooks", "hoc", "composables", "pinia-stores"],
+  "detectCustomPatterns": true,
+  "compareWithBestPractices": true,
+  "suggestImprovements": true
+}
+```
+
+**Detected Patterns:**
+
+**React & React Native:**
+- **Hooks**: Standard (useState, useEffect, etc.) and custom hooks
+- **HOCs**: Higher-Order Components (withAuth, withRouter)
+- **Render Props**: Components using render/children function props
+- **Compound Components**: Parent.Child component patterns
+- **Context Providers**: Context API usage
+
+**Vue 3 & Nuxt 3:**
+- **Composables**: Composition API functions (use* pattern)
+- **Pinia Stores**: Store definitions with state/getters/actions
+- **Vue Plugins**: Plugins with install functions
+- **Vue Directives**: Custom v-* directives
+- **Nuxt Modules**: Module definitions (defineNuxtModule)
+- **Nuxt Middleware**: Route middleware patterns
+
+**Common Patterns:**
+- **Data Fetching**: fetch, axios, useFetch, useQuery patterns
+- **Error Handling**: try-catch blocks, Error Boundaries
+- **Forms**: useForm, Formik, native form patterns
+
+**Parameters:**
+- `patternTypes`: Filter specific pattern types to detect
+- `detectCustomPatterns`: Identify frequently used custom patterns (≥3 files)
+- `compareWithBestPractices`: Compare against industry standards
+- `suggestImprovements`: Get detailed refactoring recommendations
+
+**Example Output:**
+```json
+{
+  "project": {
+    "name": "MyProject",
+    "type": "react",
+    "totalFiles": 45
+  },
+  "patterns": {
+    "customHooks": [
+      {
+        "name": "useAuth",
+        "file": "src/hooks/useAuth.ts",
+        "line": 12,
+        "type": "custom-hooks",
+        "confidence": 0.9,
+        "description": "Custom React hook: useAuth"
+      }
+    ],
+    "hocs": [
+      {
+        "name": "withAuth",
+        "file": "src/hoc/withAuth.tsx",
+        "wrappedComponent": "Component",
+        "enhancedProps": []
+      }
+    ],
+    "providers": [
+      {
+        "name": "AuthContext.Provider",
+        "file": "src/context/AuthContext.tsx",
+        "line": 25,
+        "type": "providers",
+        "confidence": 1.0,
+        "description": "Context Provider usage"
+      }
+    ]
+  },
+  "antipatterns": [
+    {
+      "type": "excessive-providers",
+      "file": "multiple",
+      "severity": "warning",
+      "description": "Found 12 Context providers",
+      "suggestion": "Consider consolidating providers or using a state management library"
+    }
+  ],
+  "bestPractices": [
+    {
+      "pattern": "Functional Components with Hooks",
+      "status": "follows",
+      "details": "Project uses React hooks for state management",
+      "suggestions": null
+    }
+  ],
+  "recommendations": [
+    "Consider extracting reusable logic into custom hooks.",
+    "Many Context providers detected. Consider using Redux or Zustand."
+  ],
+  "summary": {
+    "totalPatterns": 45,
+    "byType": {
+      "customHooks": 12,
+      "hooks": 23,
+      "providers": 8,
+      "dataFetching": 2
+    },
+    "mostCommon": ["hooks", "customHooks", "providers"]
+  }
 }
 ```
 
@@ -518,11 +620,19 @@ Create a `.code-analysis.json` file in your project root:
 - [x] MCP server scaffold
 - [x] AST parser service (JS/TS/Vue SFC)
 - [x] Framework detection (React/RN/Vue/Nuxt)
-- [x] Basic architecture analyzer
+- [x] Architecture analyzer with detailed metrics
 - [x] Mermaid diagram generator
+- [x] LLM memory integration
 
-### Phase 2-4: Advanced Features 🚧
-- [ ] Complete pattern detection
+### Phase 2: Pattern Detection ✅
+- [x] React patterns (Hooks, HOCs, Render Props, Compound Components)
+- [x] Vue/Nuxt patterns (Composables, Pinia Stores, Plugins, Directives)
+- [x] Common patterns (Data Fetching, Error Handling, Forms)
+- [x] Antipattern detection
+- [x] Best practice comparison
+- [x] Custom pattern identification
+
+### Phase 3-4: Advanced Features 🚧
 - [ ] Coverage analysis with test scaffolding
 - [ ] Convention validation with auto-fix
 - [ ] Context pack optimization
