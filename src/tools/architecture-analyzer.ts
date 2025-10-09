@@ -341,45 +341,248 @@ async function analyzeVue3(
 }
 
 /**
- * React Native specific analysis
+ * React Native specific analysis (includes Expo)
  */
 async function analyzeReactNative(
   result: ArchitectureAnalysisResult,
   files: any[],
-  _projectPath: string
+  projectPath: string
 ): Promise<ArchitectureAnalysisResult> {
+  // Comprehensive layer detection
   result.architecture.layers = [
     {
       name: "Screens",
-      description: "Top-level screen components",
-      directories: ["screens/", "src/screens/"],
-      dependencies: ["components/", "hooks/"],
+      description: "Top-level screen components for navigation",
+      directories: ["screens/", "src/screens/", "app/screens/"],
+      dependencies: ["components/", "hooks/", "contexts/", "services/"],
+    },
+    {
+      name: "Navigation",
+      description: "Navigation configuration and navigators",
+      directories: ["navigation/", "src/navigation/", "app/navigation/"],
+      dependencies: ["screens/", "contexts/"],
     },
     {
       name: "Components",
       description: "Reusable UI components",
-      directories: ["components/", "src/components/"],
-      dependencies: ["hooks/"],
+      directories: ["components/", "src/components/", "app/components/"],
+      dependencies: ["hooks/", "utils/", "theme/"],
     },
     {
       name: "Hooks",
-      description: "Custom React hooks",
-      directories: ["hooks/", "src/hooks/"],
-      dependencies: ["utils/"],
+      description: "Custom React hooks for shared logic",
+      directories: ["hooks/", "src/hooks/", "app/hooks/"],
+      dependencies: ["services/", "contexts/", "utils/"],
+    },
+    {
+      name: "Contexts",
+      description: "React Context providers for global state",
+      directories: ["contexts/", "src/contexts/", "app/contexts/", "providers/", "src/providers/"],
+      dependencies: ["hooks/", "services/"],
+    },
+    {
+      name: "Services",
+      description: "API clients, business logic, and external integrations",
+      directories: ["services/", "src/services/", "app/services/", "api/", "src/api/"],
+      dependencies: ["utils/", "constants/"],
+    },
+    {
+      name: "Utils",
+      description: "Utility functions and helpers",
+      directories: ["utils/", "src/utils/", "app/utils/", "helpers/", "src/helpers/"],
+      dependencies: ["constants/"],
+    },
+    {
+      name: "Constants",
+      description: "App constants, theme, and configuration",
+      directories: ["constants/", "src/constants/", "app/constants/", "theme/", "config/"],
+      dependencies: [],
+    },
+    {
+      name: "Types",
+      description: "TypeScript type definitions",
+      directories: ["types/", "src/types/", "app/types/", "@types/"],
+      dependencies: [],
     },
   ];
 
-  const hooks = files.filter((f) => f.path.includes("hooks/"));
+  // Count custom hooks
+  const hooks = files.filter((f) => f.path.includes("hooks/") || f.path.includes("/hooks."));
   result.hooks = {
     total: hooks.length,
     custom: hooks.map((h) => h.path),
     patterns: [],
   };
 
-  result.recommendations = [
-    "Extract complex logic into custom hooks",
-    "Use React Context for global state",
+  // Detect state management from imports
+  let statePattern: "context" | "redux" | "zustand" | "mobx" | "pinia" | "vuex" | "mixed" = "context";
+  const hasRedux = files.some(
+    (f) =>
+      f.imports?.some(
+        (imp: any) =>
+          imp.source === "redux" ||
+          imp.source === "@reduxjs/toolkit" ||
+          imp.source === "react-redux"
+      )
+  );
+  const hasZustand = files.some((f) => f.imports?.some((imp: any) => imp.source === "zustand"));
+  const hasMobx = files.some(
+    (f) => f.imports?.some((imp: any) => imp.source === "mobx" || imp.source === "mobx-react")
+  );
+
+  if (hasRedux) statePattern = "redux";
+  else if (hasZustand) statePattern = "zustand";
+  else if (hasMobx) statePattern = "mobx";
+  else if (hasRedux && (hasZustand || hasMobx)) statePattern = "mixed";
+
+  result.stateManagement.pattern = statePattern;
+
+  // React Native specific information
+  const reactNativeInfo: import("../types/index.js").ReactNativeArchitectureExtension = {
+    mobilePatterns: {
+      flatLists: 0,
+      scrollViews: 0,
+      touchables: 0,
+      keyboards: 0,
+      safeAreas: 0,
+      modals: 0,
+      bottomSheets: 0,
+    },
+    thirdPartyLibraries: {
+      navigation: [],
+      stateManagement: [],
+      ui: [],
+      networking: [],
+      forms: [],
+      animations: [],
+      gestures: [],
+      media: [],
+      maps: [],
+    },
+  };
+
+  // Detect navigation libraries
+  const navFiles = files.filter((f) => f.path.includes("navigation/"));
+  const hasReactNavigation = files.some((f) =>
+    f.imports?.some((imp: any) => imp.source.startsWith("@react-navigation/"))
+  );
+  const hasExpoRouter = files.some((f) =>
+    f.imports?.some((imp: any) => imp.source === "expo-router" || imp.source.startsWith("expo-router/"))
+  );
+
+  if (hasReactNavigation) {
+    reactNativeInfo.thirdPartyLibraries!.navigation!.push("@react-navigation/*");
+    result.navigation.pattern = "stack"; // Default, could be tab/drawer/mixed
+  }
+  if (hasExpoRouter) {
+    reactNativeInfo.thirdPartyLibraries!.navigation!.push("expo-router");
+    result.navigation.pattern = "file-based";
+  }
+
+  // Detect UI libraries
+  const uiLibraries = [
+    { pkg: "react-native-paper", name: "React Native Paper" },
+    { pkg: "native-base", name: "Native Base" },
+    { pkg: "@shopify/restyle", name: "Shopify Restyle" },
+    { pkg: "tamagui", name: "Tamagui" },
+    { pkg: "react-native-elements", name: "React Native Elements" },
+    { pkg: "@ui-kitten/components", name: "UI Kitten" },
   ];
+  for (const lib of uiLibraries) {
+    if (files.some((f) => f.imports?.some((imp: any) => imp.source === lib.pkg))) {
+      reactNativeInfo.thirdPartyLibraries!.ui!.push(lib.name);
+    }
+  }
+
+  // Detect networking libraries
+  if (files.some((f) => f.imports?.some((imp: any) => imp.source === "axios"))) {
+    reactNativeInfo.thirdPartyLibraries!.networking!.push("axios");
+  }
+  if (files.some((f) => f.imports?.some((imp: any) => imp.source === "@tanstack/react-query"))) {
+    reactNativeInfo.thirdPartyLibraries!.networking!.push("React Query");
+  }
+  if (files.some((f) => f.imports?.some((imp: any) => imp.source === "swr"))) {
+    reactNativeInfo.thirdPartyLibraries!.networking!.push("SWR");
+  }
+
+  // Detect form libraries
+  if (files.some((f) => f.imports?.some((imp: any) => imp.source === "react-hook-form"))) {
+    reactNativeInfo.thirdPartyLibraries!.forms!.push("React Hook Form");
+  }
+  if (files.some((f) => f.imports?.some((imp: any) => imp.source === "formik"))) {
+    reactNativeInfo.thirdPartyLibraries!.forms!.push("Formik");
+  }
+
+  // Detect animation libraries
+  if (files.some((f) => f.imports?.some((imp: any) => imp.source === "react-native-reanimated"))) {
+    reactNativeInfo.thirdPartyLibraries!.animations!.push("Reanimated");
+  }
+  if (files.some((f) => f.imports?.some((imp: any) => imp.source === "lottie-react-native"))) {
+    reactNativeInfo.thirdPartyLibraries!.animations!.push("Lottie");
+  }
+
+  // Detect gesture handler
+  if (files.some((f) => f.imports?.some((imp: any) => imp.source === "react-native-gesture-handler"))) {
+    reactNativeInfo.thirdPartyLibraries!.gestures!.push("Gesture Handler");
+  }
+
+  // Detect media libraries
+  if (files.some((f) => f.imports?.some((imp: any) => imp.source === "react-native-image-picker"))) {
+    reactNativeInfo.thirdPartyLibraries!.media!.push("Image Picker");
+  }
+  if (files.some((f) => f.imports?.some((imp: any) => imp.source === "expo-av"))) {
+    reactNativeInfo.thirdPartyLibraries!.media!.push("Expo AV");
+  }
+  if (files.some((f) => f.imports?.some((imp: any) => imp.source === "react-native-video"))) {
+    reactNativeInfo.thirdPartyLibraries!.media!.push("Video");
+  }
+
+  // Detect maps
+  if (files.some((f) => f.imports?.some((imp: any) => imp.source === "react-native-maps"))) {
+    reactNativeInfo.thirdPartyLibraries!.maps!.push("React Native Maps");
+  }
+
+  // Count mobile UI patterns from file content
+  for (const file of files) {
+    const content = await fs.readFile(path.join(projectPath, file.path), "utf-8");
+    reactNativeInfo.mobilePatterns!.flatLists! += (content.match(/FlatList/g) || []).length;
+    reactNativeInfo.mobilePatterns!.scrollViews! += (content.match(/ScrollView/g) || []).length;
+    reactNativeInfo.mobilePatterns!.touchables! += (content.match(/Touchable|Pressable/g) || []).length;
+    reactNativeInfo.mobilePatterns!.keyboards! += (content.match(/Keyboard\./g) || []).length;
+    reactNativeInfo.mobilePatterns!.safeAreas! += (content.match(/SafeAreaView/g) || []).length;
+    reactNativeInfo.mobilePatterns!.modals! += (content.match(/<Modal/g) || []).length;
+  }
+
+  result.reactNative = reactNativeInfo;
+
+  // Enhanced recommendations
+  const recommendations: string[] = [];
+
+  if (!hasReactNavigation && !hasExpoRouter) {
+    recommendations.push("📱 Consider using React Navigation or Expo Router for navigation");
+  }
+
+  if (result.stateManagement.pattern === "context" && files.length > 50) {
+    recommendations.push("🔄 For larger apps, consider Zustand or Redux for state management");
+  }
+
+  if (hooks.length < 5) {
+    recommendations.push("🪝 Extract reusable logic into custom hooks");
+  }
+
+  if (reactNativeInfo.thirdPartyLibraries!.animations!.length === 0) {
+    recommendations.push("✨ Consider React Native Reanimated for smooth 60fps animations");
+  }
+
+  if (!navFiles.length) {
+    recommendations.push("🧭 Organize navigation in a dedicated navigation/ directory");
+  }
+
+  if (reactNativeInfo.mobilePatterns!.flatLists! > 10) {
+    recommendations.push("⚡ Optimize FlatList performance with getItemLayout, keyExtractor, and memoization");
+  }
+
+  result.recommendations = recommendations;
 
   return result;
 }

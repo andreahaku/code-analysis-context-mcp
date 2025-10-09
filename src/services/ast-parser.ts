@@ -227,27 +227,122 @@ export class ASTParser {
     isVue: boolean;
     hasHooks: boolean;
     hasComposables: boolean;
+    isReactNative: boolean;
+    reactNativePatterns?: {
+      hasNavigation: boolean;
+      hasPlatformSpecific: boolean;
+      hasNativeModules: boolean;
+      hasAnimations: boolean;
+      hasAsyncStorage: boolean;
+      navigationHooks: string[];
+      animationLibraries: string[];
+    };
   } {
     const imports = this.extractImports(ast);
-    const hasReactImport = imports.some((imp) => imp.source === "react" || imp.source === "react-native");
+    const hasReactImport = imports.some((imp) => imp.source === "react");
+    const hasReactNativeImport = imports.some((imp) => imp.source === "react-native");
+    const hasExpoImport = imports.some((imp) => imp.source.startsWith("expo"));
     const hasVueImport = imports.some((imp) => imp.source === "vue" || imp.source.startsWith("@vue/"));
+
+    const isReactNative = hasReactNativeImport || hasExpoImport;
 
     // Check for hooks (use* pattern)
     let hasHooks = false;
     let hasComposables = false;
 
+    // React Native specific patterns
+    const reactNativePatterns = {
+      hasNavigation: false,
+      hasPlatformSpecific: false,
+      hasNativeModules: false,
+      hasAnimations: false,
+      hasAsyncStorage: false,
+      navigationHooks: [] as string[],
+      animationLibraries: [] as string[],
+    };
+
     if (ast.type === "VueSFC") {
       hasComposables = true; // Vue files likely use composables
+    }
+
+    // React Navigation detection
+    const navImports = imports.filter(
+      (imp) =>
+        imp.source.startsWith("@react-navigation/") ||
+        imp.source === "expo-router" ||
+        imp.source.startsWith("expo-router/")
+    );
+    if (navImports.length > 0) {
+      reactNativePatterns.hasNavigation = true;
+    }
+
+    // Animation libraries
+    const animationImports = imports.filter(
+      (imp) =>
+        imp.source === "react-native-reanimated" ||
+        imp.source === "react-native-animatable" ||
+        imp.source === "lottie-react-native" ||
+        imp.source === "react-native-reanimated" ||
+        (imp.source === "react-native" && imp.specifiers.some((s) => s.includes("Animated")))
+    );
+    if (animationImports.length > 0) {
+      reactNativePatterns.hasAnimations = true;
+      reactNativePatterns.animationLibraries = animationImports.map((imp) => imp.source);
+    }
+
+    // AsyncStorage detection
+    if (
+      imports.some(
+        (imp) =>
+          imp.source === "@react-native-async-storage/async-storage" ||
+          imp.source === "@react-native-community/async-storage" ||
+          imp.source === "expo-secure-store"
+      )
+    ) {
+      reactNativePatterns.hasAsyncStorage = true;
     }
 
     const checkNames = (node: any) => {
       if (!node || typeof node !== "object") return;
 
       if (node.type === "Identifier" && node.name.startsWith("use")) {
-        if (hasReactImport) hasHooks = true;
+        if (hasReactImport || hasReactNativeImport) hasHooks = true;
         if (hasVueImport) hasComposables = true;
+
+        // React Navigation specific hooks
+        const navHooks = [
+          "useNavigation",
+          "useRoute",
+          "useFocusEffect",
+          "useIsFocused",
+          "useNavigationState",
+          "useScrollToTop",
+        ];
+        if (isReactNative && navHooks.includes(node.name)) {
+          reactNativePatterns.navigationHooks.push(node.name);
+        }
       }
 
+      // Platform-specific code detection
+      if (node.type === "MemberExpression") {
+        if (
+          node.object?.name === "Platform" &&
+          (node.property?.name === "OS" ||
+            node.property?.name === "select" ||
+            node.property?.name === "Version")
+        ) {
+          reactNativePatterns.hasPlatformSpecific = true;
+        }
+      }
+
+      // NativeModules detection
+      if (node.type === "MemberExpression") {
+        if (node.object?.name === "NativeModules" || node.object?.name === "NativeEventEmitter") {
+          reactNativePatterns.hasNativeModules = true;
+        }
+      }
+
+      // Recursively check all properties
       for (const key in node) {
         if (Array.isArray(node[key])) {
           node[key].forEach(checkNames);
@@ -260,10 +355,12 @@ export class ASTParser {
     checkNames(ast);
 
     return {
-      isReact: hasReactImport,
+      isReact: hasReactImport || hasReactNativeImport,
       isVue: hasVueImport || ast.type === "VueSFC",
       hasHooks,
       hasComposables,
+      isReactNative,
+      reactNativePatterns: isReactNative ? reactNativePatterns : undefined,
     };
   }
 }

@@ -42,7 +42,17 @@ export type PatternType =
   | "nuxt-modules"
   | "nuxt-middleware"
   | "nuxt-server-routes"
-  | "vue-directives";
+  | "vue-directives"
+  // React Native mobile patterns
+  | "rn-navigation"
+  | "rn-platform-specific"
+  | "rn-native-modules"
+  | "rn-animations"
+  | "rn-permissions"
+  | "rn-storage"
+  | "rn-gestures"
+  | "rn-media"
+  | "rn-deep-linking";
 
 // State management patterns
 export type StateManagementPattern = "context" | "redux" | "zustand" | "mobx" | "pinia" | "vuex" | "mixed";
@@ -198,6 +208,16 @@ export interface FileMetrics {
     isVue: boolean;
     hasHooks: boolean;
     hasComposables: boolean;
+    isReactNative: boolean;
+    reactNativePatterns?: {
+      hasNavigation: boolean;
+      hasPlatformSpecific: boolean;
+      hasNativeModules: boolean;
+      hasAnimations: boolean;
+      hasAsyncStorage: boolean;
+      navigationHooks: string[];
+      animationLibraries: string[];
+    };
   };
 }
 
@@ -241,6 +261,8 @@ export interface ArchitectureAnalysisResult {
   diagrams: DiagramInfo;
   recommendations: string[];
   memorySuggestions?: MemorySuggestion[];
+  // React Native specific fields
+  reactNative?: ReactNativeArchitectureExtension;
 }
 
 // Tool parameters
@@ -862,4 +884,162 @@ export interface ConventionValidationParams {
   autoFix?: boolean; // Generate auto-fix suggestions
   applyAutoFixes?: boolean; // Actually apply safe fixes
   framework?: FrameworkType;
+}
+
+// ====================== React Native Mobile-Specific Types ======================
+
+// React Native Navigation types
+export type NavigatorType = "stack" | "tab" | "drawer" | "bottom-tab" | "material-top-tab" | "native-stack";
+
+export interface NavigatorInfo {
+  name: string;
+  type: NavigatorType;
+  file: string;
+  screens: ScreenInfo[];
+  options?: Record<string, any>;
+}
+
+export interface ScreenInfo {
+  name: string;
+  component: string;
+  file: string;
+  route?: string;
+  params?: string[];
+  options?: Record<string, any>;
+}
+
+export interface ReactNativeNavigationInfo extends NavigationInfo {
+  navigators?: NavigatorInfo[];
+  screens?: ScreenInfo[];
+  deepLinking?: {
+    enabled: boolean;
+    prefixes?: string[];
+    config?: Record<string, any>;
+  };
+  navigationContainer?: {
+    file: string;
+    theme?: "light" | "dark" | "custom";
+  };
+}
+
+// Platform-specific file information
+export interface PlatformSpecificFile {
+  baseName: string; // e.g., "Component"
+  baseFile?: string; // Component.tsx (if exists)
+  iosFile?: string; // Component.ios.tsx
+  androidFile?: string; // Component.android.tsx
+  nativeFile?: string; // Component.native.tsx
+  webFile?: string; // Component.web.tsx
+  directory: string;
+}
+
+export interface PlatformInfo {
+  hasPlatformSpecificFiles: boolean;
+  platformFiles: PlatformSpecificFile[];
+  platformChecks: Array<{
+    file: string;
+    line: number;
+    type: "Platform.OS" | "Platform.select" | "Platform.Version";
+    platforms: string[];
+  }>;
+}
+
+// Native Module information
+export interface NativeModuleInfo {
+  name: string;
+  file: string;
+  namespace: string; // e.g., "NativeModules.MyModule"
+  methods: string[];
+  usageCount: number;
+  isTurboModule: boolean;
+}
+
+export interface NativeModulesInfo {
+  total: number;
+  modules: NativeModuleInfo[];
+  turboModules: number;
+}
+
+// Animation patterns
+export interface AnimationPattern {
+  type: "Animated" | "Reanimated" | "LayoutAnimation" | "native-driver";
+  file: string;
+  line?: number;
+  animatedValues: string[];
+  worklets?: string[]; // For Reanimated
+}
+
+export interface AnimationInfo {
+  total: number;
+  byType: Record<string, number>;
+  patterns: AnimationPattern[];
+  usesNativeDriver: boolean;
+  usesReanimated: boolean;
+}
+
+// Permission patterns
+export interface PermissionUsage {
+  type: "camera" | "location" | "notifications" | "contacts" | "photos" | "microphone" | "storage" | "other";
+  file: string;
+  line?: number;
+  library: string; // e.g., "react-native-permissions", "expo-permissions"
+  requestMethod: string;
+}
+
+export interface PermissionsInfo {
+  total: number;
+  byType: Record<string, number>;
+  permissions: PermissionUsage[];
+  libraries: string[];
+}
+
+// Storage patterns
+export interface StoragePattern {
+  type: "AsyncStorage" | "MMKV" | "SecureStore" | "Realm" | "WatermelonDB" | "SQLite" | "other";
+  file: string;
+  line?: number;
+  operations: Array<"get" | "set" | "remove" | "clear">;
+}
+
+export interface StorageInfo {
+  total: number;
+  byType: Record<string, number>;
+  patterns: StoragePattern[];
+  encrypted: boolean;
+}
+
+// React Native specific architecture result extension
+export interface ReactNativeArchitectureExtension {
+  reactNativeVersion?: string;
+  expoVersion?: string;
+  isExpoManaged?: boolean;
+
+  navigation?: ReactNativeNavigationInfo;
+  nativeModules?: NativeModulesInfo;
+  platformInfo?: PlatformInfo;
+  animations?: AnimationInfo;
+  permissions?: PermissionsInfo;
+  storage?: StorageInfo;
+
+  mobilePatterns?: {
+    flatLists?: number;
+    scrollViews?: number;
+    touchables?: number;
+    keyboards?: number;
+    safeAreas?: number;
+    modals?: number;
+    bottomSheets?: number;
+  };
+
+  thirdPartyLibraries?: {
+    navigation?: string[]; // @react-navigation/*, expo-router
+    stateManagement?: string[]; // redux, zustand, jotai, recoil
+    ui?: string[]; // react-native-paper, native-base, tamagui
+    networking?: string[]; // axios, @tanstack/react-query
+    forms?: string[]; // react-hook-form, formik
+    animations?: string[]; // react-native-reanimated, lottie
+    gestures?: string[]; // react-native-gesture-handler
+    media?: string[]; // react-native-image-picker, expo-av
+    maps?: string[]; // react-native-maps
+  };
 }
