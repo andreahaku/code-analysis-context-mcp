@@ -763,11 +763,20 @@ async function generateTestSuggestions(
 
     // Determine file type
     const isComponent = filePath.endsWith(".tsx") || filePath.endsWith(".jsx") || filePath.endsWith(".vue");
+    const isScreen = filePath.includes("screens") || filePath.includes("app/") && (projectFramework === "react-native" || projectFramework === "expo");
     const isHook = path.basename(filePath).startsWith("use") && (filePath.includes("hooks") || filePath.includes("composables"));
     const isUtil = filePath.includes("utils") || filePath.includes("lib") || filePath.includes("helpers");
 
     // Generate appropriate test scaffold
-    if (isComponent && projectFramework === "react") {
+    if ((isComponent || isScreen) && (projectFramework === "react-native" || projectFramework === "expo")) {
+      suggestions.push(
+        generateReactNativeComponentTest(gap, filePath, exports, testFramework, existingPatterns, isScreen)
+      );
+    } else if (isHook && (projectFramework === "react-native" || projectFramework === "expo")) {
+      suggestions.push(
+        generateReactNativeHookTest(gap, filePath, exports, testFramework, existingPatterns)
+      );
+    } else if (isComponent && projectFramework === "react") {
       suggestions.push(
         generateReactComponentTest(gap, filePath, exports, testFramework, existingPatterns)
       );
@@ -902,6 +911,172 @@ describe('${hookName}', () => {
     testFilePath: testPath,
     scaffold,
     description: `Hook test for ${hookName} covering ${gap.untestedFunctions.length} functions`,
+    priority: gap.priority,
+    estimatedEffort: gap.complexity > 30 ? "medium" : "low",
+  };
+}
+
+/**
+ * Generate React Native component/screen test scaffold
+ */
+function generateReactNativeComponentTest(
+  gap: CoverageGap,
+  filePath: string,
+  exports: string[],
+  framework: TestFramework,
+  patterns: ExistingTestPattern,
+  isScreen: boolean
+): TestSuggestion {
+  const componentName = exports[0] || "Component";
+  const testPath = filePath.replace(/\.(tsx|jsx)$/, ".test.$1");
+  const importPath = "./" + path.basename(filePath, path.extname(filePath));
+
+  const renderFunc = patterns.patterns.renderFunction || "render";
+  const assertLib = patterns.patterns.assertionLibrary;
+
+  const scaffold = `import { ${framework === "vitest" ? "describe, it, expect" : "describe, it, expect"} } from '${framework === "vitest" ? "vitest" : "@jest/globals"}';
+import { ${renderFunc}, screen, fireEvent } from '@testing-library/react-native';
+${isScreen ? "import { NavigationContainer } from '@react-navigation/native';" : ""}
+import ${componentName} from '${importPath}';
+
+${isScreen ? `// Mock navigation
+const mockNavigation = {
+  navigate: jest.fn(),
+  goBack: jest.fn(),
+  setOptions: jest.fn(),
+};
+
+const mockRoute = {
+  params: {},
+  key: 'test',
+  name: '${componentName}',
+};
+` : ""}
+describe('${componentName}', () => {
+  it('should render without crashing', () => {
+    ${isScreen ? `
+    const { container } = ${renderFunc}(
+      <NavigationContainer>
+        <${componentName} navigation={mockNavigation} route={mockRoute} />
+      </NavigationContainer>
+    );` : `
+    const { container } = ${renderFunc}(<${componentName} />);`}
+    ${assertLib}(container).toBeTruthy();
+  });
+
+  it('should render with correct props', () => {
+    ${isScreen ? `
+    ${renderFunc}(
+      <NavigationContainer>
+        <${componentName} navigation={mockNavigation} route={mockRoute} />
+      </NavigationContainer>
+    );` : `
+    ${renderFunc}(<${componentName} />);`}
+    // Add assertions based on component props
+    ${assertLib}(screen.getByTestId('${componentName.toLowerCase()}')).toBeDefined();
+  });
+
+  ${isScreen ? `
+  it('should handle navigation correctly', () => {
+    ${renderFunc}(
+      <NavigationContainer>
+        <${componentName} navigation={mockNavigation} route={mockRoute} />
+      </NavigationContainer>
+    );
+
+    // Test navigation interactions
+    // fireEvent.press(screen.getByText('Navigate'));
+    // ${assertLib}(mockNavigation.navigate).toHaveBeenCalled();
+  });
+  ` : ""}
+
+  ${gap.untestedFunctions.slice(1).map(fn => `
+  it('should handle ${fn.name} correctly', () => {
+    ${isScreen ? `
+    ${renderFunc}(
+      <NavigationContainer>
+        <${componentName} navigation={mockNavigation} route={mockRoute} />
+      </NavigationContainer>
+    );` : `
+    ${renderFunc}(<${componentName} />);`}
+    // Test ${fn.name} functionality
+  });`).join('\n')}
+});
+`;
+
+  return {
+    type: isScreen ? "component" : "component",
+    framework,
+    testFilePath: testPath,
+    scaffold,
+    description: `React Native ${isScreen ? 'screen' : 'component'} test for ${componentName} with ${gap.untestedFunctions.length} untested functions`,
+    priority: gap.priority,
+    estimatedEffort: gap.complexity > 50 ? "high" : gap.complexity > 30 ? "medium" : "low",
+  };
+}
+
+/**
+ * Generate React Native hook test scaffold
+ */
+function generateReactNativeHookTest(
+  gap: CoverageGap,
+  filePath: string,
+  exports: string[],
+  framework: TestFramework,
+  _patterns: ExistingTestPattern
+): TestSuggestion {
+  const hookName = exports[0] || "useHook";
+  const testPath = filePath.replace(/\.(ts|tsx)$/, ".test.$1");
+  const importPath = "./" + path.basename(filePath, path.extname(filePath));
+
+  const scaffold = `import { ${framework === "vitest" ? "describe, it, expect" : "describe, it, expect"} } from '${framework === "vitest" ? "vitest" : "@jest/globals"}';
+import { renderHook, act, waitFor } from '@testing-library/react-native';
+import { ${hookName} } from '${importPath}';
+
+describe('${hookName}', () => {
+  it('should initialize with correct default values', () => {
+    const { result } = renderHook(() => ${hookName}());
+    expect(result.current).toBeDefined();
+  });
+
+  it('should update state correctly', async () => {
+    const { result } = renderHook(() => ${hookName}());
+
+    await act(async () => {
+      // Trigger state updates
+    });
+
+    // Add assertions
+    expect(result.current).toBeDefined();
+  });
+
+  it('should handle async operations', async () => {
+    const { result } = renderHook(() => ${hookName}());
+
+    await waitFor(() => {
+      expect(result.current).toBeDefined();
+    });
+  });
+
+  ${gap.untestedFunctions.slice(1).map(fn => `
+  it('should handle ${fn.name} correctly', async () => {
+    const { result } = renderHook(() => ${hookName}());
+
+    await act(async () => {
+      // Test ${fn.name} functionality
+    });
+
+    expect(result.current).toBeDefined();
+  });`).join('\n')}
+});
+`;
+
+  return {
+    type: "hook",
+    framework,
+    testFilePath: testPath,
+    scaffold,
+    description: `React Native hook test for ${hookName} covering ${gap.untestedFunctions.length} functions`,
     priority: gap.priority,
     estimatedEffort: gap.complexity > 30 ? "medium" : "low",
   };
@@ -1139,6 +1314,24 @@ function generateRecommendations(
     recommendations.push(
       `Large number of gaps (${gaps.length}). Consider: (1) Focus on critical/high priority first, (2) Set up CI coverage gates, (3) Make testing part of feature development.`
     );
+  }
+
+  // React Native / Expo specific recommendations
+  const rnScreenGaps = gaps.filter((g) => g.file.includes("screens") || g.file.includes("app/"));
+  if (rnScreenGaps.length > 0 && (gaps.length > 0)) {
+    const hasRNTestingLib = gaps.some((g) =>
+      g.testSuggestions.some((s) => s.scaffold?.includes("@testing-library/react-native"))
+    );
+
+    if (hasRNTestingLib) {
+      recommendations.push(
+        `📱 ${rnScreenGaps.length} React Native screen components lack tests. Use @testing-library/react-native with Navigation mocks for testing screens.`
+      );
+
+      recommendations.push(
+        `📱 React Native Testing: Remember to test navigation, user interactions with fireEvent.press(), and async operations with waitFor().`
+      );
+    }
   }
 
   if (recommendations.length === 0) {

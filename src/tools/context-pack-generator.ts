@@ -254,6 +254,21 @@ function analyzeTask(task: string): TaskAnalysis {
     "model",
     "type",
     "interface",
+    // Mobile-specific concepts
+    "gesture",
+    "animation",
+    "touchable",
+    "flatlist",
+    "scrollview",
+    "modal",
+    "tab",
+    "drawer",
+    "stack",
+    "native",
+    "platform",
+    "ios",
+    "android",
+    "expo",
   ];
   for (const concept of frameworkPatterns) {
     if (lowerTask.includes(concept)) {
@@ -290,6 +305,30 @@ function analyzeTask(task: string): TaskAnalysis {
     "admin",
     "settings",
     "analytics",
+    // Mobile-specific domain concepts
+    "camera",
+    "photo",
+    "image",
+    "location",
+    "map",
+    "gps",
+    "permission",
+    "push",
+    "biometric",
+    "fingerprint",
+    "face-id",
+    "share",
+    "haptic",
+    "vibration",
+    "orientation",
+    "accelerometer",
+    "sensor",
+    "bluetooth",
+    "nfc",
+    "storage",
+    "asyncstorage",
+    "deeplink",
+    "universal-link",
   ];
   for (const concept of domainPatterns) {
     if (lowerTask.includes(concept)) {
@@ -764,6 +803,28 @@ function extractConventions(architecture: any): string[] {
     conventions.push("Pinia stores in stores/ directory");
   }
 
+  // React Native / Expo conventions
+  if (architecture.project.type === "react-native" || architecture.project.type === "expo") {
+    conventions.push("Platform-specific code with .ios.tsx/.android.tsx extensions");
+    conventions.push("Screens organized in screens/ or app/ directory");
+    conventions.push("React Navigation for navigation patterns");
+
+    if (architecture.project.type === "expo") {
+      conventions.push("Expo Router file-based navigation (if app/ directory exists)");
+      conventions.push("Expo SDK modules for native functionality");
+    }
+
+    if (architecture.navigation?.pattern?.includes("stack")) {
+      conventions.push("Stack navigation pattern for screen hierarchy");
+    }
+    if (architecture.navigation?.pattern?.includes("tab")) {
+      conventions.push("Tab-based navigation for primary app sections");
+    }
+
+    conventions.push("AsyncStorage for persistent data storage");
+    conventions.push("StyleSheet.create for component styling");
+  }
+
   return conventions;
 }
 
@@ -789,6 +850,57 @@ function extractPatterns(files: ContextFile[]): string[] {
     if (file.content.includes("async") && file.content.includes("await")) {
       patterns.add("Async/Await");
     }
+
+    // Mobile-specific patterns
+    if (
+      file.content.includes("useNavigation") ||
+      file.content.includes("NavigationContainer") ||
+      file.content.includes("createStackNavigator")
+    ) {
+      patterns.add("React Navigation");
+    }
+    if (file.content.includes("Platform.OS") || file.content.includes("Platform.select")) {
+      patterns.add("Platform-Specific Code");
+    }
+    if (
+      file.content.includes("Animated.") ||
+      file.content.includes("useAnimatedStyle") ||
+      file.content.includes("withTiming")
+    ) {
+      patterns.add("React Native Animations");
+    }
+    if (
+      file.content.includes("GestureDetector") ||
+      file.content.includes("PanGestureHandler") ||
+      file.content.includes("TapGestureHandler")
+    ) {
+      patterns.add("Gesture Handlers");
+    }
+    if (file.content.includes("AsyncStorage") || file.content.includes("SecureStore")) {
+      patterns.add("Mobile Storage");
+    }
+    if (file.content.includes("Permissions.") || file.content.includes("requestPermission")) {
+      patterns.add("Permission Handling");
+    }
+    if (file.content.includes("Notifications.") || file.content.includes("registerForPushNotifications")) {
+      patterns.add("Push Notifications");
+    }
+    if (file.content.includes("Camera") || file.content.includes("ImagePicker")) {
+      patterns.add("Media/Camera Access");
+    }
+    if (file.content.includes("Location.") || file.content.includes("getCurrentPosition")) {
+      patterns.add("Location Services");
+    }
+    if (
+      file.content.includes("NativeModules.") ||
+      file.content.includes("NativeEventEmitter") ||
+      file.content.includes("requireNativeComponent")
+    ) {
+      patterns.add("Native Modules");
+    }
+    if (file.content.includes("Linking.") || file.content.includes("getInitialURL")) {
+      patterns.add("Deep Linking");
+    }
   }
 
   return Array.from(patterns);
@@ -800,7 +912,7 @@ function extractPatterns(files: ContextFile[]): string[] {
 function generateSuggestions(
   taskAnalysis: TaskAnalysis,
   files: ContextFile[],
-  _architecture: any
+  architecture: any
 ): string[] {
   const suggestions: string[] = [];
 
@@ -832,6 +944,55 @@ function generateSuggestions(
     suggestions.push(
       `✅ Found ${highRelevanceFiles.length} highly relevant files - great starting point!`
     );
+  }
+
+  // Mobile-specific suggestions
+  if (architecture?.project?.type === "react-native" || architecture?.project?.type === "expo") {
+    const hasPlatformSpecific = files.some(
+      (f) => f.path.includes(".ios.") || f.path.includes(".android.")
+    );
+    if (hasPlatformSpecific) {
+      suggestions.push("📱 Platform-specific files detected - ensure changes work on both iOS and Android");
+    }
+
+    const hasNavigation = files.some(
+      (f) =>
+        f.content.includes("useNavigation") ||
+        f.content.includes("NavigationContainer") ||
+        f.path.includes("navigation")
+    );
+    if (hasNavigation) {
+      suggestions.push("🧭 Navigation changes detected - verify navigation flows and deep linking");
+    }
+
+    const hasNativeModules = files.some(
+      (f) => f.content.includes("NativeModules") || f.content.includes("requireNativeComponent")
+    );
+    if (hasNativeModules) {
+      suggestions.push("🔧 Native modules involved - rebuild app after changes");
+    }
+
+    const hasPermissions = files.some(
+      (f) => f.content.includes("Permissions") || f.content.includes("requestPermission")
+    );
+    if (hasPermissions) {
+      suggestions.push("🔐 Permission handling detected - test on real devices, not just simulators");
+    }
+
+    const hasAnimations = files.some(
+      (f) => f.content.includes("Animated") || f.content.includes("useAnimatedStyle")
+    );
+    if (hasAnimations) {
+      suggestions.push("✨ Animations involved - test performance on low-end devices");
+    }
+
+    if (taskAnalysis.frameworkConcepts.includes("screen")) {
+      suggestions.push("📱 Screen component work - consider navigation params, focus effects, and back handling");
+    }
+
+    if (taskAnalysis.domainConcepts.some((c) => ["camera", "location", "push", "biometric"].includes(c))) {
+      suggestions.push("🎯 Native feature integration - ensure proper permission handling and error states");
+    }
   }
 
   return suggestions;
@@ -891,7 +1052,54 @@ function getFrameworkGlobs(framework: string): string[] {
     return [...baseGlobs, "components/**/*.vue", "composables/**/*.ts", "stores/**/*.ts"];
   }
 
-  if (framework === "react" || framework === "react-native") {
+  if (framework === "expo") {
+    return [
+      ...baseGlobs,
+      "app/**/*.{ts,tsx,js,jsx}", // Expo Router
+      "screens/**/*.{tsx,jsx}",
+      "components/**/*.{tsx,jsx}",
+      "hooks/**/*.{ts,tsx}",
+      "navigation/**/*.{tsx,ts}",
+      "contexts/**/*.{tsx,ts}",
+      "providers/**/*.{tsx,ts}",
+      "services/**/*.{ts,tsx}",
+      "api/**/*.{ts,tsx}",
+      "utils/**/*.ts",
+      "constants/**/*.ts",
+      "config/**/*.ts",
+      "types/**/*.ts",
+      // Platform-specific
+      "**/*.ios.{ts,tsx,js,jsx}",
+      "**/*.android.{ts,tsx,js,jsx}",
+      "**/*.native.{ts,tsx,js,jsx}",
+      "**/*.web.{ts,tsx,js,jsx}",
+    ];
+  }
+
+  if (framework === "react-native") {
+    return [
+      ...baseGlobs,
+      "app/**/*.{ts,tsx,js,jsx}",
+      "screens/**/*.{tsx,jsx}",
+      "components/**/*.{tsx,jsx}",
+      "hooks/**/*.{ts,tsx}",
+      "navigation/**/*.{tsx,ts}",
+      "contexts/**/*.{tsx,ts}",
+      "providers/**/*.{tsx,ts}",
+      "services/**/*.{ts,tsx}",
+      "api/**/*.{ts,tsx}",
+      "utils/**/*.ts",
+      "constants/**/*.ts",
+      "config/**/*.ts",
+      "types/**/*.ts",
+      // Platform-specific
+      "**/*.ios.{ts,tsx,js,jsx}",
+      "**/*.android.{ts,tsx,js,jsx}",
+      "**/*.native.{ts,tsx,js,jsx}",
+    ];
+  }
+
+  if (framework === "react") {
     return [
       ...baseGlobs,
       "components/**/*.{tsx,jsx}",

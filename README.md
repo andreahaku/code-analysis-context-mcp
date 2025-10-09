@@ -310,6 +310,17 @@ Detect framework-specific patterns, custom implementations, and antipatterns:
 - **Render Props**: Components using render/children function props
 - **Compound Components**: Parent.Child component patterns
 - **Context Providers**: Context API usage
+- **React Navigation**: useNavigation, NavigationContainer, Stack/Tab/Drawer navigators
+- **Platform-Specific Code**: Platform.OS, Platform.select, .ios/.android file extensions
+- **Animations**: Animated API, Reanimated (useAnimatedStyle, withTiming)
+- **Gesture Handlers**: PanGestureHandler, TapGestureHandler, GestureDetector
+- **Mobile Storage**: AsyncStorage, SecureStore, MMKV
+- **Permission Handling**: Permissions API, requestPermission patterns
+- **Push Notifications**: Notifications API, FCM integration
+- **Media Access**: Camera, ImagePicker, MediaLibrary
+- **Location Services**: Location API, getCurrentPosition, watchPosition
+- **Native Modules**: NativeModules, requireNativeComponent, NativeEventEmitter
+- **Deep Linking**: Linking API, universal links, URL schemes
 
 **Vue 3 & Nuxt 3:**
 
@@ -515,6 +526,73 @@ Identify untested code with meaningful, actionable test suggestions prioritized 
         // Trigger state updates
       });
       // Add assertions
+    });
+  });
+  ```
+
+  **React Native Components** (`*.tsx`, `*.jsx` in screens/):
+  ```typescript
+  import { describe, it, expect } from 'jest';
+  import { render, fireEvent, screen } from '@testing-library/react-native';
+  import { NavigationContainer } from '@react-navigation/native';
+  import HomeScreen from './HomeScreen';
+
+  // Mock navigation
+  const mockNavigation = {
+    navigate: jest.fn(),
+    goBack: jest.fn(),
+    setOptions: jest.fn(),
+  };
+
+  const mockRoute = {
+    params: {},
+    key: 'test',
+    name: 'HomeScreen',
+  };
+
+  describe('HomeScreen', () => {
+    it('should render without crashing', () => {
+      const { container } = render(
+        <NavigationContainer>
+          <HomeScreen navigation={mockNavigation} route={mockRoute} />
+        </NavigationContainer>
+      );
+      expect(container).toBeTruthy();
+    });
+
+    it('should handle navigation correctly', () => {
+      render(
+        <NavigationContainer>
+          <HomeScreen navigation={mockNavigation} route={mockRoute} />
+        </NavigationContainer>
+      );
+
+      fireEvent.press(screen.getByText('Go to Profile'));
+      expect(mockNavigation.navigate).toHaveBeenCalledWith('Profile');
+    });
+  });
+  ```
+
+  **React Native Hooks** (`use*.ts` in hooks/):
+  ```typescript
+  import { describe, it, expect } from 'jest';
+  import { renderHook, act, waitFor } from '@testing-library/react-native';
+  import { useLocation } from './useLocation';
+
+  describe('useLocation', () => {
+    it('should initialize with correct default values', () => {
+      const { result } = renderHook(() => useLocation());
+      expect(result.current).toBeDefined();
+    });
+
+    it('should handle async operations', async () => {
+      const { result } = renderHook(() => useLocation());
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      expect(result.current.location).toBeDefined();
     });
   });
   ```
@@ -1650,7 +1728,109 @@ code_analyze_dependency_graph({ detectCircular: true })
 3. **Medium**: Bottlenecks with >15 dependencies
 4. **Low**: General coupling improvements
 
-### 10. Store Analysis in LLM Memory for Persistent Context
+### 10. Analyze React Native / Expo Mobile Projects
+
+Ask Claude Code: _"Analyze my React Native project's architecture and identify untested screens"_
+
+**Mobile-Specific Analysis:**
+
+```typescript
+// Step 1: Analyze mobile architecture
+code_analyze_architecture({
+  projectPath: "/path/to/mobile-app",
+  depth: "detailed",
+  analyzeTypes: ["components", "hooks", "navigation"],
+  framework: "react-native",  // or "expo"
+});
+```
+
+**What you'll discover:**
+
+1. **Navigation Structure**:
+   - Stack navigators for screen hierarchy
+   - Tab navigators for main app sections
+   - Drawer navigators for side menus
+   - Deep linking configuration
+
+2. **Platform-Specific Code**:
+   - `.ios.tsx` / `.android.tsx` files
+   - `Platform.OS` conditional logic
+   - Native module integrations
+
+3. **Mobile Patterns**:
+   - React Navigation usage (useNavigation, NavigationContainer)
+   - AsyncStorage for data persistence
+   - Permission handling (Camera, Location, Notifications)
+   - Gesture handlers and animations
+   - Platform-specific styling
+
+4. **Screen Components**:
+   - Screens in `screens/` or `app/` directory
+   - Navigation props and route params
+   - Focus effects and lifecycle hooks
+
+**Coverage Analysis for Mobile:**
+
+```typescript
+code_analyze_coverage_gaps({
+  projectPath: "/path/to/mobile-app",
+  framework: "jest",  // React Native Testing Library uses Jest
+  priority: "high",
+  suggestTests: true,
+});
+```
+
+**Mobile-Specific Recommendations:**
+
+```
+📱 Found 8 React Native screen components lack tests. Use @testing-library/react-native with Navigation mocks for testing screens.
+
+📱 React Native Testing: Remember to test navigation, user interactions with fireEvent.press(), and async operations with waitFor().
+
+🔧 Native modules detected - ensure proper mocking in tests
+
+🎯 Permission handling found - test on real devices, not just simulators
+```
+
+**Pattern Detection for Mobile:**
+
+```typescript
+code_analyze_patterns({
+  projectPath: "/path/to/mobile-app",
+  patternTypes: ["hooks", "navigation", "platform-specific"],
+  detectCustomPatterns: true,
+});
+```
+
+**Detected Mobile Patterns:**
+- ✅ React Navigation (Stack, Tab, Drawer)
+- ✅ Platform-Specific Code (15 files with Platform.OS)
+- ✅ React Native Animations (Reanimated v2)
+- ✅ Gesture Handlers (Pan, Tap gestures)
+- ✅ Mobile Storage (AsyncStorage, SecureStore)
+- ✅ Permission Handling (Camera, Location)
+- ✅ Deep Linking (Linking API configured)
+
+**Context Pack for Mobile Development:**
+
+```typescript
+code_generate_context_pack({
+  task: "Add biometric authentication to login screen",
+  projectPath: "/path/to/mobile-app",
+  maxTokens: 50000,
+  includeTypes: ["relevant-files", "architecture", "patterns"],
+});
+```
+
+**Mobile-Specific Suggestions:**
+- 📱 Platform-specific files detected - ensure changes work on both iOS and Android
+- 🧭 Navigation changes detected - verify navigation flows and deep linking
+- 🔧 Native modules involved - rebuild app after changes
+- 🔐 Permission handling detected - test on real devices, not just simulators
+- ✨ Animations involved - test performance on low-end devices
+- 📱 Screen component work - consider navigation params, focus effects, and back handling
+
+### 11. Store Analysis in LLM Memory for Persistent Context
 
 Ask Claude Code: _"Analyze my project and store key insights in memory for future sessions"_
 
