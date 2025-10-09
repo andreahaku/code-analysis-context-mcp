@@ -78,7 +78,7 @@ Generate comprehensive architectural overview:
 
 **LLM Memory Integration** 🧠:
 
-Store analysis results in the llm_memory MCP for persistent project knowledge:
+Store analysis results in the [llm_memory MCP](https://github.com/andreahaku/llm_memory_mcp) for persistent project knowledge:
 
 ```typescript
 {
@@ -130,7 +130,7 @@ This returns structured `memorySuggestions` that Claude Code can store across di
 - **local**: Current session context (architecture overview, metrics)
 - **committed**: Project-persistent, team-visible (high-complexity files, stores config)
 
-**Usage with llm_memory MCP:**
+**Usage with [llm_memory MCP](https://github.com/andreahaku/llm_memory_mcp):**
 
 After receiving memory suggestions, Claude Code can store them:
 
@@ -408,16 +408,325 @@ Detect framework-specific patterns, custom implementations, and antipatterns:
 
 #### 4. `code_analyze_coverage_gaps`
 
-Identify untested code:
+Identify untested code with meaningful, actionable test suggestions prioritized by criticality and complexity:
 
 ```typescript
 {
   "projectPath": "/path/to/project",
-  "coverageReportPath": "coverage/coverage-summary.json",
-  "framework": "vitest",
-  "suggestTests": true
+  "coverageReportPath": "coverage/lcov.info",           // Optional: LCOV or JSON
+  "framework": "vitest",                                 // Auto-detected if not specified
+  "threshold": {                                         // Coverage thresholds
+    "lines": 80,
+    "functions": 80,
+    "branches": 75,
+    "statements": 80
+  },
+  "priority": "high",                                    // "critical" | "high" | "medium" | "low" | "all"
+  "includeGlobs": ["src/**/*.{ts,tsx,js,jsx,vue}"],
+  "excludeGlobs": ["**/*.test.*", "**/*.spec.*"],
+  "suggestTests": true,                                  // Generate test scaffolds
+  "analyzeComplexity": true                              // Factor complexity into priority
 }
 ```
+
+**Core Features:**
+
+- **Intelligent Prioritization**: Multi-factor scoring system
+  - **File Criticality**: Directory-based classification (core/important/standard/peripheral)
+    - **Core**: utils/, lib/, services/, api/, stores/, composables/ (high-impact utilities)
+    - **Important**: hooks/, providers/, context/ (widely-used abstractions)
+    - **Standard**: components/, pages/ (UI layers)
+    - **Peripheral**: Other files
+  - **Complexity Analysis**: Cyclomatic complexity scoring (AST-based)
+  - **Import Frequency**: Files imported by many others → higher criticality
+  - **Coverage Deficits**: Below-threshold gaps weighted by criticality
+
+- **Priority Formula**:
+  ```
+  CRITICAL: core files with 0% coverage + complexity >30, OR core files below threshold
+  HIGH:     important files with low coverage, OR complexity >50 + coverage <50%
+  MEDIUM:   standard files below threshold
+  LOW:      peripheral files or above threshold
+  ```
+
+- **Test Framework Detection**: Auto-detects from package.json and existing tests
+  - Vitest (prioritized for modern projects)
+  - Jest
+  - Playwright
+  - Mocha
+  - Ava
+
+- **Coverage Report Parsing**:
+  - **LCOV format**: Parses SF/DA/FN/FNDA/BRF/BRH records
+  - **JSON format**: Istanbul/NYC coverage data (l/f/b/s)
+  - Gracefully handles missing reports (analyzes all files as untested)
+
+- **Existing Test Pattern Detection**:
+  Analyzes your existing tests to extract:
+  - Import statement patterns
+  - Assertion library (expect vs assert)
+  - Mocking library (vi.mock vs jest.mock)
+  - Render function (render vs mount)
+  - Setup patterns (beforeEach, afterEach, beforeAll)
+  - Common test helpers and utilities
+
+- **Framework-Specific Test Scaffolds**:
+  Generates meaningful tests based on file type and framework:
+
+  **React Components** (`*.tsx`, `*.jsx`):
+  ```typescript
+  import { describe, it, expect } from 'vitest';
+  import { render, screen } from '@testing-library/react';
+  import Dashboard from './Dashboard';
+
+  describe('Dashboard', () => {
+    it('should render without crashing', () => {
+      const { container } = render(<Dashboard />);
+      expect(container).toBeTruthy();
+    });
+
+    it('should render with correct props', () => {
+      render(<Dashboard />);
+      // Add assertions based on component props
+    });
+
+    it('should handle onClick correctly', () => {
+      render(<Dashboard />);
+      // Test onClick functionality
+    });
+  });
+  ```
+
+  **React Hooks** (`use*.ts` in hooks/):
+  ```typescript
+  import { describe, it, expect } from 'vitest';
+  import { renderHook, act } from '@testing-library/react';
+  import { useAuth } from './useAuth';
+
+  describe('useAuth', () => {
+    it('should initialize with correct default values', () => {
+      const { result } = renderHook(() => useAuth());
+      expect(result.current).toBeDefined();
+    });
+
+    it('should update state correctly', () => {
+      const { result } = renderHook(() => useAuth());
+      act(() => {
+        // Trigger state updates
+      });
+      // Add assertions
+    });
+  });
+  ```
+
+  **Vue Components** (`*.vue`):
+  ```typescript
+  import { describe, it, expect } from 'vitest';
+  import { mount } from '@vue/test-utils';
+  import MyComponent from './MyComponent.vue';
+
+  describe('MyComponent', () => {
+    it('should mount successfully', () => {
+      const wrapper = mount(MyComponent);
+      expect(wrapper.exists()).toBe(true);
+    });
+
+    it('should render with correct props', async () => {
+      const wrapper = mount(MyComponent, {
+        props: { /* Add props */ }
+      });
+      expect(wrapper.text()).toContain('expected text');
+    });
+  });
+  ```
+
+  **Utility Functions** (utils/, lib/, helpers/):
+  ```typescript
+  import { describe, it, expect } from 'vitest';
+  import { formatDate, parseDate } from './date-utils';
+
+  describe('date-utils', () => {
+    describe('formatDate', () => {
+      it('should handle valid input', () => {
+        const result = formatDate(new Date('2025-01-01'));
+        expect(result).toBeDefined();
+      });
+
+      it('should handle edge cases', () => {
+        // Test edge cases: null, undefined, invalid dates
+      });
+
+      it('should throw on invalid input', () => {
+        expect(() => formatDate(null)).toThrow();
+      });
+    });
+  });
+  ```
+
+**Example Output:**
+
+```json
+{
+  "project": {
+    "name": "MyProject",
+    "totalFiles": 120,
+    "framework": "react"
+  },
+  "summary": {
+    "overallCoverage": {
+      "lines": 65.5,
+      "functions": 58.2,
+      "branches": 45.0,
+      "statements": 64.8
+    },
+    "testedFiles": 85,
+    "untestedFiles": 25,
+    "partiallyTestedFiles": 10,
+    "testFramework": "vitest"
+  },
+  "threshold": {
+    "lines": 80,
+    "functions": 80,
+    "branches": 75,
+    "statements": 80
+  },
+  "gaps": [
+    {
+      "file": "src/utils/api-client.ts",
+      "priority": "critical",
+      "criticality": "core",
+      "complexity": 87,
+      "coverage": {
+        "lines": 0,
+        "functions": 0,
+        "branches": 0,
+        "statements": 0
+      },
+      "reasons": [
+        "No test coverage",
+        "Core utility - high impact if bugs present",
+        "High complexity (87) - error-prone"
+      ],
+      "untestedFunctions": [
+        { "name": "fetchData", "line": 15, "complexity": 25 },
+        { "name": "postData", "line": 42, "complexity": 18 },
+        { "name": "handleError", "line": 78, "complexity": 12 }
+      ],
+      "untestedLines": [15, 16, 17, 42, 43, 78, 79],
+      "testSuggestions": [
+        {
+          "type": "unit",
+          "framework": "vitest",
+          "testFilePath": "src/utils/api-client.test.ts",
+          "scaffold": "import { describe, it, expect } from 'vitest';\nimport { fetchData, postData } from './api-client';\n\ndescribe('api-client', () => {\n  describe('fetchData', () => {\n    it('should handle valid input', () => {\n      const result = fetchData(/* valid input */);\n      expect(result).toBeDefined();\n    });\n\n    it('should handle edge cases', () => {\n      // Test edge cases: null, undefined, empty, etc.\n    });\n\n    it('should throw on invalid input', () => {\n      expect(() => fetchData(/* invalid input */)).toThrow();\n    });\n  });\n});",
+          "description": "Utility tests for 3 functions: fetchData, postData, handleError",
+          "priority": "critical",
+          "estimatedEffort": "high"
+        }
+      ]
+    },
+    {
+      "file": "src/hooks/useAuth.ts",
+      "priority": "high",
+      "criticality": "important",
+      "complexity": 45,
+      "coverage": {
+        "lines": 25.5,
+        "functions": 20.0,
+        "branches": 15.0,
+        "statements": 24.0
+      },
+      "reasons": [
+        "Line coverage 25.5% below threshold 80%",
+        "Function coverage 20.0% below threshold 80%",
+        "Important file - widely used across codebase",
+        "Moderate complexity (45) - needs testing"
+      ],
+      "untestedFunctions": [
+        { "name": "login", "complexity": 15 },
+        { "name": "logout", "complexity": 8 }
+      ],
+      "untestedLines": [23, 24, 25, 56, 57],
+      "testSuggestions": [
+        {
+          "type": "hook",
+          "framework": "vitest",
+          "testFilePath": "src/hooks/useAuth.test.ts",
+          "scaffold": "import { describe, it, expect } from 'vitest';\nimport { renderHook, act } from '@testing-library/react';\nimport { useAuth } from './useAuth';\n\ndescribe('useAuth', () => {\n  it('should initialize with correct default values', () => {\n    const { result } = renderHook(() => useAuth());\n    expect(result.current).toBeDefined();\n  });\n\n  it('should update state correctly', () => {\n    const { result } = renderHook(() => useAuth());\n\n    act(() => {\n      // Trigger state updates\n    });\n\n    // Add assertions\n  });\n\n  it('should handle login correctly', () => {\n    const { result } = renderHook(() => useAuth());\n    // Test login functionality\n  });\n\n  it('should handle logout correctly', () => {\n    const { result } = renderHook(() => useAuth());\n    // Test logout functionality\n  });\n});",
+          "description": "Hook test for useAuth covering 2 functions",
+          "priority": "high",
+          "estimatedEffort": "medium"
+        }
+      ]
+    }
+  ],
+  "criticalGaps": [
+    {
+      "file": "src/utils/api-client.ts",
+      "priority": "critical",
+      "criticality": "core",
+      "complexity": 87
+    }
+  ],
+  "existingTestPatterns": {
+    "framework": "vitest",
+    "patterns": {
+      "importStatements": [
+        "import { describe, it, expect } from 'vitest'",
+        "import { render, screen } from '@testing-library/react'"
+      ],
+      "setupPatterns": ["beforeEach", "afterEach"],
+      "assertionLibrary": "expect",
+      "mockingLibrary": "vi.mock",
+      "renderFunction": "render",
+      "commonHelpers": []
+    },
+    "exampleFiles": [
+      "src/components/__tests__/Button.test.tsx",
+      "src/hooks/__tests__/useData.test.ts"
+    ]
+  },
+  "recommendations": [
+    "⚠️ CRITICAL: Found 1 high-priority coverage gaps in core files. These should be addressed immediately.",
+    "Line coverage is 65.5%, 14.5% below target. Focus on testing untested core utilities first.",
+    "1 core utility files lack adequate coverage. These are high-impact - start here.",
+    "2 high-complexity files (complexity > 50) need tests. Complex code is error-prone."
+  ],
+  "metadata": {
+    "coverageReportPath": "coverage/lcov.info",
+    "analyzedAt": "2025-10-09T14:30:00.000Z",
+    "gapsAboveThreshold": 2
+  }
+}
+```
+
+**Use Cases:**
+
+1. **Identify Critical Testing Gaps**:
+   - Core utilities with 0% coverage
+   - High-complexity files without tests
+   - Widely-imported modules with low coverage
+
+2. **Generate Meaningful Test Scaffolds**:
+   - Framework-aware (React vs Vue vs generic)
+   - Matches existing project test patterns
+   - Includes all untested functions
+   - Provides descriptive test names
+
+3. **Prioritize Test Development**:
+   - Focus on critical/high priority first
+   - Complexity-based ordering within priority
+   - Estimated effort per test suggestion
+
+4. **Track Coverage Progress**:
+   - Overall coverage percentages
+   - Files tested vs untested
+   - Gap count by priority level
+
+5. **Enforce Coverage Standards**:
+   - Configurable thresholds per metric
+   - Identify files below threshold
+   - CI/CD integration ready
 
 #### 5. `code_validate_conventions`
 
@@ -940,6 +1249,8 @@ code_analyze_dependency_graph({ detectCircular: true })
 
 Ask Claude Code: _"Analyze my project and store key insights in memory for future sessions"_
 
+Uses the [llm_memory MCP](https://github.com/andreahaku/llm_memory_mcp) server to persist analysis results across conversations.
+
 ```typescript
 code_analyze_architecture({
   projectPath: "/path/to/project",
@@ -1049,7 +1360,7 @@ Create a `.code-analysis.json` file in your project root:
 
 - [x] Full dependency graph analysis with circular detection
 - [x] Context pack optimization with intelligent file ranking
-- [ ] Coverage analysis with test scaffolding
+- [x] Coverage analysis with test scaffolding
 - [ ] Convention validation with auto-fix
 
 ## Architecture

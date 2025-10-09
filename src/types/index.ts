@@ -584,3 +584,128 @@ export interface ContextPackParams {
   includeLineNumbers?: boolean;
   optimizationStrategy?: OptimizationStrategy;
 }
+
+// Coverage Analysis types
+export type TestFramework = "jest" | "vitest" | "playwright" | "mocha" | "ava";
+export type CoverageFormat = "lcov" | "json" | "clover";
+export type GapPriority = "critical" | "high" | "medium" | "low";
+export type FileCriticality = "core" | "important" | "standard" | "peripheral";
+
+export interface CoverageThreshold {
+  lines?: number;
+  functions?: number;
+  branches?: number;
+  statements?: number;
+}
+
+export interface FileCoverage {
+  path: string;
+  lines: {
+    total: number;
+    covered: number;
+    percentage: number;
+    uncovered: number[];
+  };
+  functions: {
+    total: number;
+    covered: number;
+    percentage: number;
+    uncovered: string[];
+  };
+  branches: {
+    total: number;
+    covered: number;
+    percentage: number;
+  };
+  statements: {
+    total: number;
+    covered: number;
+    percentage: number;
+  };
+}
+
+export interface CoverageGap {
+  file: string;
+  priority: GapPriority;
+  criticality: FileCriticality;
+  complexity: number;
+  coverage: {
+    lines: number;
+    functions: number;
+    branches: number;
+    statements: number;
+  };
+  reasons: string[];
+  untestedFunctions: Array<{
+    name: string;
+    line?: number;
+    complexity: number;
+  }>;
+  untestedLines: number[];
+  testSuggestions: TestSuggestion[];
+}
+
+export interface TestSuggestion {
+  type: "unit" | "integration" | "component" | "hook" | "composable" | "e2e";
+  framework: TestFramework;
+  testFilePath: string;
+  scaffold: string;
+  description: string;
+  priority: GapPriority;
+  estimatedEffort: "low" | "medium" | "high";
+}
+
+export interface ExistingTestPattern {
+  framework: TestFramework;
+  patterns: {
+    importStatements: string[];
+    setupPatterns: string[];
+    assertionLibrary: string; // expect, assert, etc.
+    mockingLibrary?: string; // vi.mock, jest.mock, etc.
+    renderFunction?: string; // render, mount, etc.
+    commonHelpers: string[];
+  };
+  exampleFiles: string[];
+}
+
+export interface CoverageAnalysisResult {
+  project: {
+    name: string;
+    totalFiles: number;
+    framework: FrameworkType;
+  };
+  summary: {
+    overallCoverage: {
+      lines: number;
+      functions: number;
+      branches: number;
+      statements: number;
+    };
+    testedFiles: number;
+    untestedFiles: number;
+    partiallyTestedFiles: number;
+    testFramework?: TestFramework;
+  };
+  threshold?: CoverageThreshold;
+  gaps: CoverageGap[];
+  criticalGaps: CoverageGap[];
+  existingTestPatterns?: ExistingTestPattern;
+  recommendations: string[];
+  metadata: {
+    coverageReportPath?: string;
+    analyzedAt: string;
+    gapsAboveThreshold: number;
+  };
+}
+
+export interface CoverageAnalysisParams {
+  projectPath?: string;
+  coverageReportPath?: string;
+  framework?: TestFramework;
+  threshold?: CoverageThreshold;
+  priority?: GapPriority | "all";
+  includeGlobs?: string[];
+  excludeGlobs?: string[];
+  suggestTests?: boolean;
+  analyzeComplexity?: boolean;
+}
