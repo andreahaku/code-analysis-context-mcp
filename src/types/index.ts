@@ -426,6 +426,15 @@ export interface PatternAnalysisResult {
     dataFetching?: PatternOccurrence[];
     errorHandling?: PatternOccurrence[];
     forms?: PatternOccurrence[];
+    // React Native mobile patterns
+    rnNavigation?: PatternOccurrence[];
+    rnPlatformSpecific?: PatternOccurrence[];
+    rnNativeModules?: PatternOccurrence[];
+    rnAnimations?: PatternOccurrence[];
+    rnPermissions?: PatternOccurrence[];
+    rnStorage?: PatternOccurrence[];
+    rnGestures?: PatternOccurrence[];
+    rnMedia?: PatternOccurrence[];
   };
   customPatterns?: {
     name: string;

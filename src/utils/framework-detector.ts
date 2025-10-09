@@ -293,14 +293,29 @@ export class FrameworkDetector {
       case "react-native":
       case "expo":
         return [
-          "src/**/*.ts",
-          "src/**/*.tsx",
-          "src/**/*.js",
-          "src/**/*.jsx",
-          "screens/**/*.tsx",
-          "components/**/*.tsx",
-          "hooks/**/*.ts",
+          // Standard patterns
+          "src/**/*.{ts,tsx,js,jsx}",
+          "app/**/*.{ts,tsx,js,jsx}", // Expo Router
+          "screens/**/*.{tsx,jsx}",
+          "components/**/*.{tsx,jsx}",
+          "navigation/**/*.{tsx,ts}",
+          "hooks/**/*.{ts,tsx}",
+          "contexts/**/*.{tsx,ts}",
+          "providers/**/*.{tsx,ts}",
+          "services/**/*.{ts,tsx}",
+          "api/**/*.{ts,tsx}",
           "utils/**/*.ts",
+          "helpers/**/*.ts",
+          "constants/**/*.ts",
+          "theme/**/*.ts",
+          "config/**/*.ts",
+          "types/**/*.ts",
+          "@types/**/*.ts",
+          // Platform-specific patterns
+          "**/*.ios.{ts,tsx,js,jsx}",
+          "**/*.android.{ts,tsx,js,jsx}",
+          "**/*.native.{ts,tsx,js,jsx}",
+          "**/*.web.{ts,tsx,js,jsx}",
         ];
 
       case "react":
@@ -337,6 +352,17 @@ export class FrameworkDetector {
     switch (framework) {
       case "nuxt3":
         return [...common, "**/.nuxt/**", "**/.output/**"];
+
+      case "react-native":
+      case "expo":
+        return [
+          ...common,
+          "**/android/**",
+          "**/ios/**",
+          "**/.expo/**",
+          "**/.expo-shared/**",
+          "**/web-build/**",
+        ];
 
       default:
         return common;

@@ -465,10 +465,31 @@ function getDefaultConventions(framework: FrameworkType): ProjectConventions {
     },
   };
 
-  if (framework === "react" || framework === "react-native") {
+  if (framework === "react" || framework === "react-native" || framework === "expo") {
     baseConventions.naming!.hooks = {
       pattern: "use[A-Z][a-zA-Z]+",
       description: "Hooks should start with 'use' followed by PascalCase name",
+    };
+  }
+
+  // React Native / Expo specific conventions
+  if (framework === "react-native" || framework === "expo") {
+    // Screen components should end with "Screen"
+    baseConventions.framework = {
+      screens: {
+        pattern: "[A-Z][a-zA-Z]+Screen",
+        description: "Screen components should end with 'Screen' suffix (e.g., HomeScreen, ProfileScreen)",
+        directory: "screens/",
+      },
+      navigators: {
+        pattern: "[A-Z][a-zA-Z]+Navigator",
+        description: "Navigator components should end with 'Navigator' suffix (e.g., RootNavigator, AuthNavigator)",
+        directory: "navigation/",
+      },
+      platformSpecific: {
+        allowedExtensions: [".ios.tsx", ".android.tsx", ".native.tsx", ".web.tsx", ".ios.ts", ".android.ts", ".native.ts", ".web.ts"],
+        description: "Platform-specific files should use proper extensions (.ios.tsx, .android.tsx, .native.tsx, .web.tsx)",
+      },
     };
   }
 
@@ -539,6 +560,81 @@ async function validateFile(
         "Composable naming"
       );
       if (violation) violations.push(violation);
+    }
+  }
+
+  // React Native / Expo specific naming conventions
+  if ((framework === "react-native" || framework === "expo") && conventions.framework) {
+    // Screen naming convention
+    if (conventions.framework.screens && file.match(/\/(screens?|app\/screens?)\/.*\.(tsx|jsx)$/)) {
+      if (!basename.endsWith("Screen")) {
+        violations.push({
+          file: relPath,
+          category: "framework-specific",
+          severity: "warning",
+          rule: "Screen naming",
+          message: "Screen components should end with 'Screen' suffix",
+          expected: `${basename}Screen`,
+          actual: basename,
+          autoFixable: true,
+          autoFix: {
+            type: "rename",
+            description: `Rename to ${basename}Screen`,
+            currentValue: basename,
+            newValue: `${basename}Screen`,
+            safe: true,
+            preview: `${basename} → ${basename}Screen`,
+          },
+        });
+      }
+    }
+
+    // Navigator naming convention
+    if (conventions.framework.navigators && file.match(/\/(navigation|navigators?)\/.*\.(tsx|jsx)$/)) {
+      if (!basename.endsWith("Navigator") && !basename.includes("Navigation")) {
+        violations.push({
+          file: relPath,
+          category: "framework-specific",
+          severity: "warning",
+          rule: "Navigator naming",
+          message: "Navigator components should end with 'Navigator' suffix",
+          expected: `${basename}Navigator`,
+          actual: basename,
+          autoFixable: true,
+          autoFix: {
+            type: "rename",
+            description: `Rename to ${basename}Navigator`,
+            currentValue: basename,
+            newValue: `${basename}Navigator`,
+            safe: true,
+            preview: `${basename} → ${basename}Navigator`,
+          },
+        });
+      }
+    }
+
+    // Platform-specific file naming
+    if (conventions.framework.platformSpecific) {
+      const hasMultiplePlatformExtensions =
+        file.match(/\.(ios|android|native|web)\.(tsx?|jsx?)$/);
+
+      if (hasMultiplePlatformExtensions) {
+        const fullExtension = path.basename(file).match(/\.(ios|android|native|web)\.(tsx?|jsx?)$/)?.[0];
+        const allowedExtensions = conventions.framework.platformSpecific.allowedExtensions || [];
+
+        if (fullExtension && !allowedExtensions.includes(fullExtension)) {
+          violations.push({
+            file: relPath,
+            category: "framework-specific",
+            severity: "info",
+            rule: "Platform-specific file extension",
+            message: "Platform-specific files should use proper extensions",
+            expected: allowedExtensions.join(", "),
+            actual: fullExtension,
+            autoFixable: false,
+          });
+        }
+      }
     }
   }
 
@@ -1016,11 +1112,35 @@ function generateRecommendations(
     }
   }
 
-  if (framework === "react" || framework === "react-native") {
+  if (framework === "react" || framework === "react-native" || framework === "expo") {
     const hookViolations = violations.filter((v) => v.rule.includes("Hook"));
     if (hookViolations.length > 0) {
       recommendations.push(
         `React hooks should start with 'use' prefix (e.g., useAuth, useState).`
+      );
+    }
+  }
+
+  // React Native / Expo specific recommendations
+  if (framework === "react-native" || framework === "expo") {
+    const screenViolations = violations.filter((v) => v.rule === "Screen naming");
+    if (screenViolations.length > 0) {
+      recommendations.push(
+        `📱 Found ${screenViolations.length} screen components without 'Screen' suffix. Follow the convention: HomeScreen, ProfileScreen, etc.`
+      );
+    }
+
+    const navigatorViolations = violations.filter((v) => v.rule === "Navigator naming");
+    if (navigatorViolations.length > 0) {
+      recommendations.push(
+        `📱 Found ${navigatorViolations.length} navigator components without 'Navigator' suffix. Follow the convention: RootNavigator, AuthNavigator, etc.`
+      );
+    }
+
+    const platformSpecificViolations = violations.filter((v) => v.rule === "Platform-specific file extension");
+    if (platformSpecificViolations.length > 0) {
+      recommendations.push(
+        `📱 Platform-specific files should use proper extensions: .ios.tsx, .android.tsx, .native.tsx, .web.tsx`
       );
     }
   }

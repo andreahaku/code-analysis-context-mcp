@@ -179,6 +179,71 @@ function detectReactPatterns(
       result.patterns.providers.push(...providers);
     }
   }
+
+  // React Native mobile patterns
+  if (shouldDetect("rn-navigation")) {
+    const navigation = detectReactNavigationPatterns(ast, file);
+    if (navigation.length > 0) {
+      result.patterns.rnNavigation = result.patterns.rnNavigation || [];
+      result.patterns.rnNavigation.push(...navigation);
+    }
+  }
+
+  if (shouldDetect("rn-platform-specific")) {
+    const platform = detectPlatformSpecificPatterns(ast, file);
+    if (platform.length > 0) {
+      result.patterns.rnPlatformSpecific = result.patterns.rnPlatformSpecific || [];
+      result.patterns.rnPlatformSpecific.push(...platform);
+    }
+  }
+
+  if (shouldDetect("rn-native-modules")) {
+    const nativeModules = detectNativeModulePatterns(ast, file);
+    if (nativeModules.length > 0) {
+      result.patterns.rnNativeModules = result.patterns.rnNativeModules || [];
+      result.patterns.rnNativeModules.push(...nativeModules);
+    }
+  }
+
+  if (shouldDetect("rn-animations")) {
+    const animations = detectAnimationPatterns(ast, file);
+    if (animations.length > 0) {
+      result.patterns.rnAnimations = result.patterns.rnAnimations || [];
+      result.patterns.rnAnimations.push(...animations);
+    }
+  }
+
+  if (shouldDetect("rn-permissions")) {
+    const permissions = detectPermissionPatterns(ast, file);
+    if (permissions.length > 0) {
+      result.patterns.rnPermissions = result.patterns.rnPermissions || [];
+      result.patterns.rnPermissions.push(...permissions);
+    }
+  }
+
+  if (shouldDetect("rn-storage")) {
+    const storage = detectStoragePatterns(ast, file);
+    if (storage.length > 0) {
+      result.patterns.rnStorage = result.patterns.rnStorage || [];
+      result.patterns.rnStorage.push(...storage);
+    }
+  }
+
+  if (shouldDetect("rn-gestures")) {
+    const gestures = detectGesturePatterns(ast, file);
+    if (gestures.length > 0) {
+      result.patterns.rnGestures = result.patterns.rnGestures || [];
+      result.patterns.rnGestures.push(...gestures);
+    }
+  }
+
+  if (shouldDetect("rn-media")) {
+    const media = detectMediaPatterns(ast, file);
+    if (media.length > 0) {
+      result.patterns.rnMedia = result.patterns.rnMedia || [];
+      result.patterns.rnMedia.push(...media);
+    }
+  }
 }
 
 /**
@@ -965,7 +1030,7 @@ function generateRecommendations(result: PatternAnalysisResult, framework: Frame
   }
 
   // React recommendations
-  if (framework === "react" || framework === "react-native") {
+  if (framework === "react" || framework === "react-native" || framework === "expo") {
     if (!result.patterns.customHooks || result.patterns.customHooks.length < 3) {
       recommendations.push("Consider extracting reusable logic into custom hooks.");
     }
@@ -976,6 +1041,37 @@ function generateRecommendations(result: PatternAnalysisResult, framework: Frame
 
     if (!result.patterns.errorHandling || result.patterns.errorHandling.length === 0) {
       recommendations.push("No error handling patterns detected. Consider adding Error Boundaries.");
+    }
+
+    // React Native / Expo specific recommendations
+    if (framework === "react-native" || framework === "expo") {
+      if (!result.patterns.rnNavigation || result.patterns.rnNavigation.length === 0) {
+        recommendations.push("📱 No navigation patterns detected. Consider using React Navigation or Expo Router.");
+      }
+
+      if (result.patterns.rnPlatformSpecific && result.patterns.rnPlatformSpecific.length > 10) {
+        recommendations.push("📱 Heavy use of Platform-specific code detected. Consider extracting to .ios.tsx/.android.tsx files.");
+      }
+
+      if (result.patterns.rnAnimations && result.patterns.rnAnimations.length > 5) {
+        recommendations.push("📱 Consider using Reanimated 2/3 for performant animations instead of Animated API.");
+      }
+
+      if (result.patterns.rnStorage && result.patterns.rnStorage.length > 3) {
+        recommendations.push("📱 Multiple storage operations detected. Consider using MMKV for better performance than AsyncStorage.");
+      }
+
+      if (result.patterns.rnNativeModules && result.patterns.rnNativeModules.length > 0) {
+        recommendations.push("📱 Native modules detected. Ensure proper error handling and fallbacks for platform differences.");
+      }
+
+      if (!result.patterns.rnGestures && result.patterns.rnAnimations && result.patterns.rnAnimations.length > 3) {
+        recommendations.push("📱 Consider using React Native Gesture Handler for better gesture performance.");
+      }
+
+      if (result.patterns.rnPermissions && result.patterns.rnPermissions.length > 0) {
+        recommendations.push("📱 Permission requests detected. Ensure proper user messaging and error handling.");
+      }
     }
   }
 
@@ -1034,4 +1130,397 @@ function calculateSummary(result: PatternAnalysisResult): void {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
     .map(([key]) => key);
+}
+
+// ====================== React Native Mobile Pattern Detectors ======================
+
+/**
+ * Detect React Navigation patterns (navigators, screens, navigation hooks)
+ */
+function detectReactNavigationPatterns(ast: ASTNode, file: string): PatternOccurrence[] {
+  const patterns: PatternOccurrence[] = [];
+  const navigators = ["createStackNavigator", "createBottomTabNavigator", "createDrawerNavigator", "createNativeStackNavigator", "createMaterialTopTabNavigator"];
+  const navHooks = ["useNavigation", "useRoute", "useFocusEffect", "useIsFocused"];
+
+  const checkNode = (node: any) => {
+    if (!node || typeof node !== "object") return;
+
+    // Detect navigator creation
+    if (node.type === "CallExpression" && node.callee?.name && navigators.includes(node.callee.name)) {
+      patterns.push({
+        name: node.callee.name,
+        file,
+        line: node.loc?.start?.line,
+        type: "rn-navigation",
+        confidence: 1.0,
+        description: `React Navigation: ${node.callee.name}`,
+      });
+    }
+
+    // Detect navigation hooks
+    if (node.type === "CallExpression" && node.callee?.name && navHooks.includes(node.callee.name)) {
+      patterns.push({
+        name: node.callee.name,
+        file,
+        line: node.loc?.start?.line,
+        type: "rn-navigation",
+        confidence: 1.0,
+        description: `Navigation hook: ${node.callee.name}`,
+      });
+    }
+
+    for (const key in node) {
+      if (Array.isArray(node[key])) {
+        node[key].forEach(checkNode);
+      } else if (typeof node[key] === "object") {
+        checkNode(node[key]);
+      }
+    }
+  };
+
+  checkNode(ast);
+  return patterns;
+}
+
+/**
+ * Detect Platform-specific code (Platform.OS, Platform.select)
+ */
+function detectPlatformSpecificPatterns(ast: ASTNode, file: string): PatternOccurrence[] {
+  const patterns: PatternOccurrence[] = [];
+
+  const checkNode = (node: any) => {
+    if (!node || typeof node !== "object") return;
+
+    // Platform.OS, Platform.select, Platform.Version
+    if (node.type === "MemberExpression" && node.object?.name === "Platform") {
+      const property = node.property?.name;
+      if (property === "OS" || property === "select" || property === "Version") {
+        patterns.push({
+          name: `Platform.${property}`,
+          file,
+          line: node.loc?.start?.line,
+          type: "rn-platform-specific",
+          confidence: 1.0,
+          description: `Platform-specific code: Platform.${property}`,
+        });
+      }
+    }
+
+    for (const key in node) {
+      if (Array.isArray(node[key])) {
+        node[key].forEach(checkNode);
+      } else if (typeof node[key] === "object") {
+        checkNode(node[key]);
+      }
+    }
+  };
+
+  checkNode(ast);
+  return patterns;
+}
+
+/**
+ * Detect Native Module usage (NativeModules, NativeEventEmitter, TurboModuleRegistry)
+ */
+function detectNativeModulePatterns(ast: ASTNode, file: string): PatternOccurrence[] {
+  const patterns: PatternOccurrence[] = [];
+
+  const checkNode = (node: any) => {
+    if (!node || typeof node !== "object") return;
+
+    // NativeModules.SomeModule
+    if (node.type === "MemberExpression" && node.object?.name === "NativeModules") {
+      patterns.push({
+        name: `NativeModules.${node.property?.name || "unknown"}`,
+        file,
+        line: node.loc?.start?.line,
+        type: "rn-native-modules",
+        confidence: 0.95,
+        description: "Native module access",
+      });
+    }
+
+    // NativeEventEmitter, TurboModuleRegistry
+    if (node.type === "NewExpression" && (node.callee?.name === "NativeEventEmitter" || node.callee?.name === "TurboModuleRegistry")) {
+      patterns.push({
+        name: node.callee.name,
+        file,
+        line: node.loc?.start?.line,
+        type: "rn-native-modules",
+        confidence: 1.0,
+        description: `Native module pattern: ${node.callee.name}`,
+      });
+    }
+
+    for (const key in node) {
+      if (Array.isArray(node[key])) {
+        node[key].forEach(checkNode);
+      } else if (typeof node[key] === "object") {
+        checkNode(node[key]);
+      }
+    }
+  };
+
+  checkNode(ast);
+  return patterns;
+}
+
+/**
+ * Detect Animation patterns (Animated, Reanimated, worklets)
+ */
+function detectAnimationPatterns(ast: ASTNode, file: string): PatternOccurrence[] {
+  const patterns: PatternOccurrence[] = [];
+  const animatedAPIs = ["useSharedValue", "useAnimatedStyle", "useDerivedValue", "withTiming", "withSpring", "withDecay", "runOnJS", "runOnUI"];
+
+  const checkNode = (node: any) => {
+    if (!node || typeof node !== "object") return;
+
+    // Reanimated 2/3 hooks and functions
+    if (node.type === "CallExpression" && node.callee?.name && animatedAPIs.includes(node.callee.name)) {
+      patterns.push({
+        name: node.callee.name,
+        file,
+        line: node.loc?.start?.line,
+        type: "rn-animations",
+        confidence: 1.0,
+        description: `Reanimated: ${node.callee.name}`,
+      });
+    }
+
+    // Animated API (Animated.Value, Animated.timing, etc.)
+    if (node.type === "MemberExpression" && node.object?.name === "Animated") {
+      patterns.push({
+        name: `Animated.${node.property?.name || "API"}`,
+        file,
+        line: node.loc?.start?.line,
+        type: "rn-animations",
+        confidence: 0.9,
+        description: "React Native Animated API",
+      });
+    }
+
+    // 'worklet' directive for Reanimated
+    if (node.type === "ExpressionStatement" && node.directive === "worklet") {
+      patterns.push({
+        name: "worklet",
+        file,
+        line: node.loc?.start?.line,
+        type: "rn-animations",
+        confidence: 1.0,
+        description: "Reanimated worklet function",
+      });
+    }
+
+    for (const key in node) {
+      if (Array.isArray(node[key])) {
+        node[key].forEach(checkNode);
+      } else if (typeof node[key] === "object") {
+        checkNode(node[key]);
+      }
+    }
+  };
+
+  checkNode(ast);
+  return patterns;
+}
+
+/**
+ * Detect Permission request patterns
+ */
+function detectPermissionPatterns(ast: ASTNode, file: string): PatternOccurrence[] {
+  const patterns: PatternOccurrence[] = [];
+  const permissionAPIs = ["request", "check", "checkMultiple", "requestMultiple", "openSettings", "checkNotifications", "requestNotifications"];
+
+  const checkNode = (node: any) => {
+    if (!node || typeof node !== "object") return;
+
+    // Permissions.check, Permissions.request, etc.
+    if (node.type === "MemberExpression" && node.object?.name === "Permissions" && node.property?.name && permissionAPIs.includes(node.property.name)) {
+      patterns.push({
+        name: `Permissions.${node.property.name}`,
+        file,
+        line: node.loc?.start?.line,
+        type: "rn-permissions",
+        confidence: 1.0,
+        description: "Permission request",
+      });
+    }
+
+    // Expo permissions
+    if (node.type === "MemberExpression" && node.object?.property?.name === "Permissions") {
+      patterns.push({
+        name: "Expo.Permissions",
+        file,
+        line: node.loc?.start?.line,
+        type: "rn-permissions",
+        confidence: 0.9,
+        description: "Expo permission request",
+      });
+    }
+
+    for (const key in node) {
+      if (Array.isArray(node[key])) {
+        node[key].forEach(checkNode);
+      } else if (typeof node[key] === "object") {
+        checkNode(node[key]);
+      }
+    }
+  };
+
+  checkNode(ast);
+  return patterns;
+}
+
+/**
+ * Detect Storage patterns (AsyncStorage, MMKV, SecureStore)
+ */
+function detectStoragePatterns(ast: ASTNode, file: string): PatternOccurrence[] {
+  const patterns: PatternOccurrence[] = [];
+  const storageAPIs = ["getItem", "setItem", "removeItem", "clear", "getAllKeys", "multiGet", "multiSet"];
+
+  const checkNode = (node: any) => {
+    if (!node || typeof node !== "object") return;
+
+    // AsyncStorage
+    if (node.type === "MemberExpression" && node.object?.name === "AsyncStorage" && node.property?.name && storageAPIs.includes(node.property.name)) {
+      patterns.push({
+        name: `AsyncStorage.${node.property.name}`,
+        file,
+        line: node.loc?.start?.line,
+        type: "rn-storage",
+        confidence: 1.0,
+        description: "AsyncStorage operation",
+      });
+    }
+
+    // MMKV
+    if (node.type === "MemberExpression" && (node.object?.name === "MMKV" || node.object?.name?.includes("storage")) && (node.property?.name === "set" || node.property?.name === "getString" || node.property?.name === "delete")) {
+      patterns.push({
+        name: "MMKV",
+        file,
+        line: node.loc?.start?.line,
+        type: "rn-storage",
+        confidence: 0.9,
+        description: "MMKV storage operation",
+      });
+    }
+
+    // SecureStore (Expo)
+    if (node.type === "MemberExpression" && node.object?.name === "SecureStore") {
+      patterns.push({
+        name: "SecureStore",
+        file,
+        line: node.loc?.start?.line,
+        type: "rn-storage",
+        confidence: 1.0,
+        description: "Expo SecureStore operation",
+      });
+    }
+
+    for (const key in node) {
+      if (Array.isArray(node[key])) {
+        node[key].forEach(checkNode);
+      } else if (typeof node[key] === "object") {
+        checkNode(node[key]);
+      }
+    }
+  };
+
+  checkNode(ast);
+  return patterns;
+}
+
+/**
+ * Detect Gesture Handler patterns
+ */
+function detectGesturePatterns(ast: ASTNode, file: string): PatternOccurrence[] {
+  const patterns: PatternOccurrence[] = [];
+  const gestureTypes = ["PanGestureHandler", "TapGestureHandler", "LongPressGestureHandler", "RotationGestureHandler", "PinchGestureHandler", "Swipeable"];
+  const gestureHooks = ["useAnimatedGestureHandler", "Gesture"];
+
+  const checkNode = (node: any) => {
+    if (!node || typeof node !== "object") return;
+
+    // Gesture components
+    if (node.type === "JSXOpeningElement" && node.name?.name && gestureTypes.includes(node.name.name)) {
+      patterns.push({
+        name: node.name.name,
+        file,
+        line: node.loc?.start?.line,
+        type: "rn-gestures",
+        confidence: 1.0,
+        description: `Gesture handler: ${node.name.name}`,
+      });
+    }
+
+    // Gesture hooks
+    if (node.type === "CallExpression" && node.callee?.name && gestureHooks.includes(node.callee.name)) {
+      patterns.push({
+        name: node.callee.name,
+        file,
+        line: node.loc?.start?.line,
+        type: "rn-gestures",
+        confidence: 1.0,
+        description: `Gesture hook: ${node.callee.name}`,
+      });
+    }
+
+    for (const key in node) {
+      if (Array.isArray(node[key])) {
+        node[key].forEach(checkNode);
+      } else if (typeof node[key] === "object") {
+        checkNode(node[key]);
+      }
+    }
+  };
+
+  checkNode(ast);
+  return patterns;
+}
+
+/**
+ * Detect Media patterns (Image picker, Camera, Video)
+ */
+function detectMediaPatterns(ast: ASTNode, file: string): PatternOccurrence[] {
+  const patterns: PatternOccurrence[] = [];
+  const mediaAPIs = ["launchImageLibrary", "launchCamera", "openPicker", "openCamera", "ImagePicker", "Camera"];
+
+  const checkNode = (node: any) => {
+    if (!node || typeof node !== "object") return;
+
+    // Image/Camera picker functions
+    if (node.type === "CallExpression" && node.callee?.name && mediaAPIs.some(api => node.callee.name.includes(api))) {
+      patterns.push({
+        name: node.callee.name,
+        file,
+        line: node.loc?.start?.line,
+        type: "rn-media",
+        confidence: 0.95,
+        description: `Media API: ${node.callee.name}`,
+      });
+    }
+
+    // Video/Audio components
+    if (node.type === "JSXOpeningElement" && node.name?.name && (node.name.name === "Video" || node.name.name === "Audio" || node.name.name === "Camera")) {
+      patterns.push({
+        name: node.name.name,
+        file,
+        line: node.loc?.start?.line,
+        type: "rn-media",
+        confidence: 1.0,
+        description: `Media component: ${node.name.name}`,
+      });
+    }
+
+    for (const key in node) {
+      if (Array.isArray(node[key])) {
+        node[key].forEach(checkNode);
+      } else if (typeof node[key] === "object") {
+        checkNode(node[key]);
+      }
+    }
+  };
+
+  checkNode(ast);
+  return patterns;
 }
