@@ -7,7 +7,7 @@
 
 import * as path from "path";
 import * as fs from "fs/promises";
-import * as glob from "fast-glob";
+import glob from "fast-glob";
 import { FrameworkDetector } from "../utils/framework-detector.js";
 import type {
   ConventionValidationParams,
@@ -44,7 +44,7 @@ export async function validateConventions(
   const framework = userFramework || frameworkResult.framework;
 
   // Step 2: Find all source files
-  const files = await glob.glob(includeGlobs, {
+  const files = await glob(includeGlobs, {
     cwd: projectPath,
     ignore: excludeGlobs,
     absolute: true,

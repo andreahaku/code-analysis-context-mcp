@@ -5,7 +5,7 @@
  */
 
 import * as path from "path";
-import * as glob from "fast-glob";
+import glob from "fast-glob";
 import { ASTParser } from "../services/ast-parser.js";
 import type {
   DependencyAnalysisParams,
@@ -34,7 +34,7 @@ export async function analyzeDependencyGraph(
   } = params;
 
   // Get all files
-  const files = await glob.glob(includeGlobs, {
+  const files = await glob(includeGlobs, {
     cwd: projectPath,
     ignore: excludeGlobs,
     absolute: true,

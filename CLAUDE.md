@@ -4,7 +4,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is an **MCP (Model Context Protocol) server** that provides deep codebase analysis and AI-optimized context generation for React, React Native, Vue 3, and Nuxt 3 projects. The server exposes 6 analysis tools through the MCP protocol to help AI assistants understand project architecture, detect patterns, analyze dependencies, and generate optimal context packs.
+This is an **MCP (Model Context Protocol) server** that provides deep codebase analysis and AI-optimized context generation for modern JavaScript/TypeScript frameworks. The server exposes 6 fully-implemented analysis tools through the MCP protocol to help AI assistants understand project architecture, detect patterns, analyze dependencies, and generate optimal context packs.
+
+### Supported Frameworks & Technologies
+
+**Web Frameworks:**
+- React - Hooks, Context API, HOCs, Render Props, Compound Components
+- Vue 3 - Composition API, SFCs, Composables, Pinia stores
+- Nuxt 3/4 - Auto-imports, file-based routing, server routes (Nitro), layouts, middleware, plugins
+
+**Mobile Frameworks:**
+- React Native - React Navigation (Stack/Tab/Drawer), Platform-specific code, Native modules, Animations (Reanimated), Gesture handlers
+- Expo - Expo Router, Expo SDK, File-based routing, Platform features (Camera, Location, Notifications)
+
+**UI Libraries:**
+- Nuxt UI 4 - Component detection, theming patterns
+
+**Test Frameworks:**
+- Vitest - Vue/Nuxt testing with @vue/test-utils, @nuxt/test-utils
+- Jest - React/React Native testing with Testing Library, Navigation mocks
+- Playwright - E2E testing patterns
+
+**State Management:**
+- Pinia - Store detection, test generation with setActivePinia
+- Context API - Provider patterns, hook-based state
+- Zustand - Store pattern detection
+- Redux - Action/reducer patterns
 
 ## Development Commands
 
@@ -103,18 +128,38 @@ Each framework has a dedicated analysis function that:
 - Recognizes navigation patterns
 - Provides framework-specific recommendations
 
-**Nuxt 3 specifics**:
+**Nuxt 3/4 specifics**:
 - Detects auto-imported composables and components
 - Identifies Pinia stores in `stores/` directory
 - Recognizes file-based routing from `pages/`
-- Detects server routes in `server/` directory
-- Identifies middleware and layouts
+- Detects server routes in `server/` directory (Nitro engine)
+- Identifies middleware, layouts, and plugins
+- Recognizes Nuxt UI 4 component usage
 
-**React/React Native specifics**:
+**Vue 3 specifics**:
+- Detects Composition API usage (ref, reactive, computed, watch)
+- Identifies Vue composables (functions starting with `use`)
+- Recognizes provide/inject patterns
+- Detects Vue-specific directives
+- Identifies Pinia stores
+
+**React specifics**:
 - Counts custom hooks (functions starting with `use`)
-- Detects Context API usage
-- Identifies screen/component patterns
-- Recognizes React Navigation setup
+- Detects Context API usage and providers
+- Identifies HOCs (Higher-Order Components)
+- Recognizes Render Props patterns
+- Detects Compound Components
+
+**React Native/Expo specifics**:
+- Recognizes React Navigation setup (Stack/Tab/Drawer/Native navigators)
+- Detects navigation hooks (useNavigation, useRoute, useFocusEffect)
+- Identifies Platform-specific code (Platform.OS, Platform.select)
+- Recognizes Native module usage (NativeModules, NativeEventEmitter)
+- Detects animation libraries (Reanimated, Animated API, worklets)
+- Identifies gesture handlers (PanGestureHandler, TapGestureHandler)
+- Recognizes permission requests (Permissions API, Expo Permissions)
+- Detects storage patterns (AsyncStorage, MMKV, SecureStore)
+- Identifies media APIs (Image picker, Camera, Video)
 
 ## Testing the MCP Server
 
@@ -154,13 +199,67 @@ The server communicates via stdio and returns JSON-formatted analysis results.
 - User can override with explicit `minComplexity: 0` or `maxDetailedFiles: 999`
 - Implementation: `src/tools/architecture-analyzer.ts:120-144`
 
-### Stub Tools
-Five tools currently return placeholder data but have complete interfaces ready for implementation:
-- `code_analyze_dependency_graph` - Uses `madge` and `dependency-cruiser`
-- `code_analyze_patterns` - AST-based pattern matching
-- `code_analyze_coverage_gaps` - Parses LCOV/JSON coverage reports
-- `code_validate_conventions` - Naming and structure validation
-- `code_generate_context_pack` - Token-optimized context building
+### LLM Memory Integration
+- `code_analyze_architecture` can generate memory suggestions when `generateMemorySuggestions: true`
+- Suggests storing important insights, patterns, and configurations in LLM Memory MCP
+- Supports three scopes: `global` (cross-project), `local` (project-specific), `committed` (version-controlled)
+- Memory types: `insight` (architectural decisions), `pattern` (recurring patterns), `config` (conventions)
+- Each suggestion includes title, text, tags, files, and confidence score
+- Enables persistent project knowledge across AI assistant sessions
+
+### Implemented Tools
+
+All 6 MCP tools are fully implemented and production-ready:
+
+1. **`code_analyze_architecture`** (`src/tools/architecture-analyzer.ts`)
+   - Framework detection and analysis for React, React Native, Expo, Vue 3, Nuxt 3/4
+   - Detailed per-file metrics with complexity analysis
+   - Mermaid diagram generation for architecture visualization
+   - Auto-optimization for large projects (>100 files)
+   - LLM memory integration suggestions
+
+2. **`code_analyze_dependency_graph`** (`src/tools/dependency-mapper.ts`)
+   - Builds complete dependency graph using AST parsing
+   - Detects circular dependencies with DFS algorithm
+   - Calculates coupling, cohesion, and stability metrics
+   - Identifies hotspots (hubs, bottlenecks, god objects)
+   - Generates Mermaid diagrams with styled nodes
+   - Focus mode for analyzing specific modules
+
+3. **`code_analyze_patterns`** (`src/tools/pattern-detector.ts`)
+   - React patterns: Hooks, HOCs, Render Props, Compound Components, Context API
+   - React Native/Expo patterns: Navigation, Platform-specific code, Native modules, Animations (Reanimated), Gestures, Permissions, Storage, Media APIs
+   - Vue/Nuxt patterns: Composables, Pinia stores, Vue plugins, Directives, Nuxt modules/middleware
+   - Common patterns: Data fetching, Error handling, Forms
+   - Custom pattern detection across the project
+   - Best practice comparison and improvement suggestions
+
+4. **`code_analyze_coverage_gaps`** (`src/tools/coverage-analyzer.ts`)
+   - Parses LCOV and JSON coverage reports (Jest, Vitest, Playwright)
+   - Identifies untested files with complexity-based prioritization
+   - Generates framework-specific test scaffolds:
+     - React/React Native: Jest + React Testing Library + Navigation mocks
+     - Vue/Nuxt: Vitest + @vue/test-utils + mockNuxtImport + Pinia testing
+   - Includes test suggestions for components, hooks, composables, Pinia stores, and Nuxt server routes
+   - Priority scoring based on complexity and criticality
+
+5. **`code_validate_conventions`** (`src/tools/convention-validator.ts`)
+   - Auto-detects conventions from existing codebase (naming, imports, quotes)
+   - Validates naming conventions (PascalCase, camelCase, kebab-case)
+   - Framework-specific rules: React hooks, Vue composables, React Native screens/navigators
+   - Import style validation (relative vs absolute, grouping)
+   - Code style validation (quotes, semicolons)
+   - Auto-fix suggestions with safety indicators
+   - Consistency scoring with strengths/weaknesses analysis
+
+6. **`code_generate_context_pack`** (`src/tools/context-pack-generator.ts`)
+   - Token-optimized context generation for AI assistants
+   - Task-based relevance scoring using TF-IDF
+   - Framework-aware concept detection (React hooks, Vue composables, Nuxt auto-imports)
+   - Pattern detection (hooks, composables, stores, navigation)
+   - Convention extraction from codebase
+   - Multiple output formats (Markdown, JSON, XML)
+   - Configurable token budgets and optimization strategies
 
 ## Module System
 - Uses ES modules (`"type": "module"` in package.json)

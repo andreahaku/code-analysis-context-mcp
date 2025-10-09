@@ -5,7 +5,7 @@
  */
 
 import * as path from "path";
-import * as glob from "fast-glob";
+import glob from "fast-glob";
 import { ASTParser } from "../services/ast-parser.js";
 import { FrameworkDetector } from "../utils/framework-detector.js";
 import type {
@@ -44,7 +44,7 @@ export async function analyzePatterns(
 
   // Get file patterns
   const defaultGlobs = includeGlobs || FrameworkDetector.getDefaultIncludeGlobs(framework);
-  const files = await glob.glob(defaultGlobs, {
+  const files = await glob(defaultGlobs, {
     cwd: projectPath,
     ignore: excludeGlobs,
     absolute: true,

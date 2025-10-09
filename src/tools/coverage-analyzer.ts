@@ -7,7 +7,7 @@
 
 import * as path from "path";
 import * as fs from "fs/promises";
-import * as glob from "fast-glob";
+import glob from "fast-glob";
 import { ASTParser } from "../services/ast-parser.js";
 import { FrameworkDetector } from "../utils/framework-detector.js";
 import type {
@@ -62,7 +62,7 @@ export async function analyzeCoverageGaps(
   }
 
   // Step 3: Find all source files
-  const files = await glob.glob(includeGlobs, {
+  const files = await glob(includeGlobs, {
     cwd: projectPath,
     ignore: excludeGlobs,
     absolute: true,
@@ -221,7 +221,7 @@ async function detectTestFramework(projectPath: string): Promise<TestFramework |
   }
 
   // Try to detect from test files
-  const testFiles = await glob.glob(["**/*.test.{ts,tsx,js,jsx}", "**/*.spec.{ts,tsx,js,jsx}"], {
+  const testFiles = await glob(["**/*.test.{ts,tsx,js,jsx}", "**/*.spec.{ts,tsx,js,jsx}"], {
     cwd: projectPath,
     ignore: ["**/node_modules/**"],
     absolute: true,
@@ -666,7 +666,7 @@ async function detectExistingTestPatterns(
   projectPath: string,
   framework: TestFramework
 ): Promise<ExistingTestPattern> {
-  const testFiles = await glob.glob(
+  const testFiles = await glob(
     ["**/*.test.{ts,tsx,js,jsx}", "**/*.spec.{ts,tsx,js,jsx}", "**/__tests__/**/*.{ts,tsx,js,jsx}"],
     {
       cwd: projectPath,

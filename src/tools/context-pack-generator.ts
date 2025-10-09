@@ -6,7 +6,7 @@
 
 import * as path from "path";
 import * as fs from "fs/promises";
-import * as glob from "fast-glob";
+import glob from "fast-glob";
 import { ASTParser } from "../services/ast-parser.js";
 import { FrameworkDetector } from "../utils/framework-detector.js";
 import { analyzeArchitecture } from "./architecture-analyzer.js";
@@ -51,7 +51,7 @@ export async function generateContextPack(
   const includeGlobs = getFrameworkGlobs(framework);
   const excludeGlobs = ["**/node_modules/**", "**/dist/**", "**/build/**", "**/.git/**", "**/coverage/**"];
 
-  const files = await glob.glob(includeGlobs, {
+  const files = await glob(includeGlobs, {
     cwd: projectPath,
     ignore: excludeGlobs,
     absolute: true,
