@@ -89,7 +89,7 @@ export function paginate<T>(
  * Smart pagination that adjusts page size based on estimated token size
  * This ensures we don't exceed MCP token limits
  *
- * AUTO-PAGINATION: If items would exceed maxTokens, automatically paginates to page 1
+ * AUTO-PAGINATION: Automatically paginates when item count is high
  */
 export function smartPaginate<T>(
   items: T[],
@@ -99,6 +99,7 @@ export function smartPaginate<T>(
     maxTokens?: number;
     minPageSize?: number;
     autoPaginate?: boolean; // Auto-enable pagination for large collections
+    autoThreshold?: number; // Auto-paginate if items > threshold (default: 100)
   } = {}
 ): PaginatedResult<T> {
   const {
@@ -106,16 +107,12 @@ export function smartPaginate<T>(
     maxTokens = MCP_TOKEN_LIMIT * 0.8, // 80% of limit for safety
     minPageSize = 5,
     autoPaginate = true, // Enable by default
+    autoThreshold = 100, // Auto-paginate if > 100 items
   } = options;
 
-  // Estimate total tokens
-  const totalTokens = items.length > 0
-    ? estimateTokens(JSON.stringify(items))
-    : 0;
-
-  // If no pagination params provided AND content exceeds limit, auto-paginate
-  if (autoPaginate && !params.page && !params.pageSize && totalTokens > maxTokens) {
-    // Force pagination to page 1
+  // AUTO-PAGINATION: If no pagination params AND many items, force page 1
+  // This prevents building huge responses that exceed MCP limits
+  if (autoPaginate && !params.page && !params.pageSize && items.length > autoThreshold) {
     params = { ...params, page: 1 };
   }
 
