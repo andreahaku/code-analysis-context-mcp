@@ -507,6 +507,9 @@ export interface DependencyAnalysisResult {
     averageDepth: number;
     isolatedModules: number;
     circularCount: number;
+    autoOptimized?: boolean;
+    displayedNodes?: number;
+    displayedEdges?: number;
   };
 }
 
@@ -593,6 +596,7 @@ export interface ContextPackResult {
     filesIncluded: number;
     avgRelevanceScore: number;
     generatedAt: string;
+    responseOptimized?: boolean;
   };
 }
 

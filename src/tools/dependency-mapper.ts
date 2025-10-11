@@ -79,10 +79,36 @@ export async function analyzeDependencyGraph(
   const paginatedHotspots = Pagination.smartPaginate(allHotspots, { page, pageSize });
   const hotspots = paginatedHotspots.items;
 
-  // Generate diagram (skip if paginating to reduce size)
+  // Auto-optimization for large graphs to prevent MCP token limit errors
+  let autoOptimized = false;
+  let optimizedGraph = focusedGraph;
+  const NODE_LIMIT = 50; // Limit nodes for auto-optimization
+  const EDGE_LIMIT = 100; // Limit edges for auto-optimization
+
+  // Auto-optimize if graph is large and no explicit pagination params
+  if (!page && !pageSize && (focusedGraph.nodes.length > NODE_LIMIT || focusedGraph.edges.length > EDGE_LIMIT)) {
+    autoOptimized = true;
+
+    // Keep only the most important nodes (highest centrality)
+    const sortedNodes = [...focusedGraph.nodes].sort((a, b) => b.metrics.centrality - a.metrics.centrality);
+    const limitedNodes = sortedNodes.slice(0, NODE_LIMIT);
+    const limitedNodeIds = new Set(limitedNodes.map(n => n.id));
+
+    // Keep only edges between the limited nodes
+    const limitedEdges = focusedGraph.edges.filter(
+      e => limitedNodeIds.has(e.from) && limitedNodeIds.has(e.to)
+    ).slice(0, EDGE_LIMIT);
+
+    optimizedGraph = {
+      nodes: limitedNodes,
+      edges: limitedEdges,
+    };
+  }
+
+  // Generate diagram (skip if paginating to reduce size, use optimized graph)
   let diagram: string | undefined;
   if (generateDiagram && !page) {
-    diagram = generateMermaidDiagram(focusedGraph, circularDependencies, hotspots);
+    diagram = generateMermaidDiagram(optimizedGraph, circularDependencies, hotspots);
   }
 
   // Generate recommendations
@@ -93,12 +119,24 @@ export async function analyzeDependencyGraph(
     hotspots
   );
 
+  // Add auto-optimization notice
+  if (autoOptimized) {
+    recommendations.unshift(
+      `📊 Auto-optimized for large graph: Showing top ${NODE_LIMIT} nodes by centrality and ${EDGE_LIMIT} edges. ` +
+      `Full graph has ${focusedGraph.nodes.length} nodes and ${focusedGraph.edges.length} edges. ` +
+      `Use 'focusModule' parameter to analyze specific modules in detail.`
+    );
+  }
+
   // Calculate summary
   const summary = {
     totalDependencies: focusedGraph.edges.length,
     averageDepth: calculateAverageDepth(focusedGraph),
     isolatedModules: focusedGraph.nodes.filter((n) => n.metrics.inDegree === 0 && n.metrics.outDegree === 0).length,
     circularCount: circularDependencies.length,
+    autoOptimized,
+    displayedNodes: optimizedGraph.nodes.length,
+    displayedEdges: optimizedGraph.edges.length,
   };
 
   let result: DependencyAnalysisResult & { _pagination?: any } = {
@@ -106,7 +144,7 @@ export async function analyzeDependencyGraph(
       name: path.basename(projectPath),
       totalFiles: files.length,
     },
-    graph: focusedGraph,
+    graph: optimizedGraph,
     circularDependencies,
     metrics,
     hotspots,

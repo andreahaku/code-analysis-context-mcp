@@ -113,15 +113,41 @@ export async function analyzePatterns(
   // Calculate summary
   calculateSummary(result);
 
-  // Apply smart pagination (auto-paginates if response is too large)
+  // Auto-optimization for large responses to prevent MCP token limit errors
+  let autoOptimized = false;
   let paginatedResult: PatternAnalysisResult & { _pagination?: any } = result;
   let paginationInfo: any = null;
 
-  // Paginate the largest pattern collections
+  // Calculate total pattern count across all arrays
   const patternArrays = Object.entries(result.patterns).filter(([_, v]) => Array.isArray(v));
+  const totalPatterns = patternArrays.reduce((sum, [_, arr]) => sum + (arr as any[]).length, 0);
+  const PATTERN_LIMIT = 200; // Total limit across all pattern types
 
-  if (patternArrays.length > 0) {
-    // Find largest array
+  // Auto-optimize if there are many patterns and no explicit pagination params
+  if (!page && !pageSize && totalPatterns > PATTERN_LIMIT) {
+    autoOptimized = true;
+
+    // Proportionally limit each pattern array
+    const limitedPatterns: any = {};
+    for (const [key, patterns] of patternArrays) {
+      const patternArray = patterns as any[];
+      const proportion = patternArray.length / totalPatterns;
+      const limit = Math.max(5, Math.floor(PATTERN_LIMIT * proportion)); // At least 5 per type
+      limitedPatterns[key] = patternArray.slice(0, limit);
+    }
+
+    paginatedResult = {
+      ...result,
+      patterns: limitedPatterns,
+    };
+
+    // Add auto-optimization notice to recommendations
+    result.recommendations.unshift(
+      `📊 Auto-optimized for large response: Showing ${PATTERN_LIMIT} of ${totalPatterns} total patterns. ` +
+      `Each pattern type is proportionally limited. Use 'page' and 'pageSize' parameters for full pagination control.`
+    );
+  } else if (patternArrays.length > 0 && (page || pageSize)) {
+    // Manual pagination: paginate the largest pattern collection
     const largestPattern = patternArrays.reduce((max, curr) =>
       (curr[1] as any[]).length > (max[1] as any[]).length ? curr : max
     );
@@ -138,6 +164,19 @@ export async function analyzePatterns(
     };
 
     paginationInfo = paginated.pagination;
+  }
+
+  // Limit other arrays if auto-optimized
+  if (autoOptimized) {
+    if (paginatedResult.antipatterns && paginatedResult.antipatterns.length > 20) {
+      paginatedResult.antipatterns = paginatedResult.antipatterns.slice(0, 20);
+    }
+    if (paginatedResult.bestPractices && paginatedResult.bestPractices.length > 20) {
+      paginatedResult.bestPractices = paginatedResult.bestPractices.slice(0, 20);
+    }
+    if (paginatedResult.customPatterns && paginatedResult.customPatterns.length > 20) {
+      paginatedResult.customPatterns = paginatedResult.customPatterns.slice(0, 20);
+    }
   }
 
   // Add pagination metadata if paginated

@@ -103,15 +103,30 @@ export async function generateContextPack(
     includeLineNumbers
   );
 
-  // Step 10: Build result
+  // Step 10: Calculate token usage
+  const tokensUsed = calculateTokensUsed(selectedFiles, architectureContext);
+  const formattedOutputTokens = estimateTokens(formattedOutput);
+  const totalResponseTokens = tokensUsed + formattedOutputTokens + 1000; // +1000 for metadata overhead
+
+  // Auto-optimization: If response would be too large (>20k tokens), truncate formattedOutput
+  let optimizedFormattedOutput = formattedOutput;
+  let responseOptimized = false;
+
+  if (totalResponseTokens > 20000) {
+    responseOptimized = true;
+    // Provide summary instead of full formatted output to avoid duplication
+    optimizedFormattedOutput = `[Formatted output truncated to prevent MCP token limit. Use 'files' array for file contents.]`;
+  }
+
+  // Step 11: Build result
   const result: ContextPackResult = {
     task,
     taskAnalysis,
     strategy: optimizationStrategy,
     tokenBudget: {
       max: maxTokens,
-      used: calculateTokensUsed(selectedFiles, architectureContext),
-      remaining: maxTokens - calculateTokensUsed(selectedFiles, architectureContext),
+      used: tokensUsed,
+      remaining: maxTokens - tokensUsed,
       breakdown: {
         architecture: architectureContext ? estimateTokens(JSON.stringify(architectureContext)) : 0,
         relevantFiles: selectedFiles
@@ -142,13 +157,14 @@ export async function generateContextPack(
     conventions: extractConventions(architectureContext),
     patterns: extractPatterns(selectedFiles),
     suggestions: generateSuggestions(taskAnalysis, selectedFiles, architectureContext),
-    formattedOutput,
+    formattedOutput: optimizedFormattedOutput,
     metadata: {
       totalFilesAnalyzed: files.length,
       filesIncluded: selectedFiles.length,
       avgRelevanceScore:
         selectedFiles.reduce((sum, f) => sum + f.relevanceScore, 0) / selectedFiles.length || 0,
       generatedAt: new Date().toISOString(),
+      responseOptimized,
     },
   };
 
