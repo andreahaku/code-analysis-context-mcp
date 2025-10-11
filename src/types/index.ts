@@ -730,6 +730,7 @@ export interface CoverageAnalysisResult {
     coverageReportPath?: string;
     analyzedAt: string;
     gapsAboveThreshold: number;
+    autoOptimized?: boolean;
   };
 }
 

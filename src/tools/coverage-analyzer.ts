@@ -152,9 +152,39 @@ export async function analyzeCoverageGaps(
   });
 
   // Step 8: Identify critical gaps
-  const criticalGaps = gaps.filter(
+  let criticalGaps = gaps.filter(
     (g) => g.priority === "critical" || g.priority === "high"
   );
+
+  // Auto-optimization for large responses to prevent MCP token limit errors
+  let autoOptimized = false;
+  let maxCriticalGaps = 20; // Default limit for criticalGaps
+  let includeFullScaffolds = suggestTests;
+
+  // Auto-optimize if there are many gaps and no explicit pagination params
+  if (!page && !pageSize && gaps.length > 50) {
+    autoOptimized = true;
+    maxCriticalGaps = 10; // Reduce critical gaps shown
+    includeFullScaffolds = false; // Truncate scaffolds to reduce size
+  }
+
+  // Limit criticalGaps to prevent token overflow
+  if (criticalGaps.length > maxCriticalGaps) {
+    criticalGaps = criticalGaps.slice(0, maxCriticalGaps);
+  }
+
+  // Truncate test scaffolds if auto-optimized to reduce response size
+  if (!includeFullScaffolds && suggestTests) {
+    for (const gap of gaps) {
+      for (const suggestion of gap.testSuggestions) {
+        if (suggestion.scaffold && suggestion.scaffold.length > 500) {
+          suggestion.scaffold =
+            suggestion.scaffold.substring(0, 500) +
+            `\n\n// ... (truncated for brevity - ${suggestion.scaffold.length - 500} characters omitted)`;
+        }
+      }
+    }
+  }
 
   // Step 9: Generate recommendations
   const recommendations = generateRecommendations(
@@ -163,6 +193,14 @@ export async function analyzeCoverageGaps(
     overallCoverage,
     threshold
   );
+
+  // Add auto-optimization notice
+  if (autoOptimized) {
+    recommendations.unshift(
+      `📊 Auto-optimized for large response: Showing top ${maxCriticalGaps} critical gaps and truncated test scaffolds. ` +
+      `Use 'page' and 'pageSize' parameters for full pagination control.`
+    );
+  }
 
   // Apply smart pagination (auto-paginates if response is too large)
   const paginatedGaps = Pagination.smartPaginate(gaps, { page, pageSize });
@@ -189,6 +227,7 @@ export async function analyzeCoverageGaps(
       coverageReportPath,
       analyzedAt: new Date().toISOString(),
       gapsAboveThreshold: gaps.filter((g) => g.priority === "critical" || g.priority === "high").length,
+      autoOptimized,
     },
   };
 
