@@ -18,6 +18,8 @@ coverage/
 *.swp
 *.swo
 *~
+.claude/
+.claudeignore
 
 # OS
 .DS_Store
