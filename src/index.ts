@@ -30,219 +30,87 @@ import { analyzeCoverageGaps } from "./tools/coverage-analyzer.js";
 import { validateConventions } from "./tools/convention-validator.js";
 import { generateContextPack } from "./tools/context-pack-generator.js";
 
-// Tool definitions
+// Tool definitions (token-optimized)
 const TOOLS: Tool[] = [
   {
-    name: "code_analyze_architecture",
-    description: "Generate comprehensive architectural overview with component relationships, data flow, and navigation patterns. Supports React, React Native, Vue 3, and Nuxt 3 projects.",
+    name: "arch",
+    description: "Analyze architecture, components, patterns. Supports React/RN/Vue/Nuxt",
     inputSchema: {
       type: "object",
       properties: {
-        projectPath: {
-          type: "string",
-          description: "Project root directory (default: current working directory)",
-        },
-        includeGlobs: {
-          type: "array",
-          items: { type: "string" },
-          description: "File patterns to include (e.g., ['src/**/*', 'components/**/*'])",
-        },
-        excludeGlobs: {
-          type: "array",
-          items: { type: "string" },
-          description: "File patterns to exclude (e.g., ['node_modules/**', 'dist/**'])",
-        },
-        depth: {
-          type: "string",
-          enum: ["overview", "detailed", "deep"],
-          description: "Analysis depth level",
-        },
-        analyzeTypes: {
+        path: { type: "string", description: "Project root" },
+        inc: { type: "array", items: { type: "string" }, description: "Include globs" },
+        exc: { type: "array", items: { type: "string" }, description: "Exclude globs" },
+        depth: { type: "string", enum: ["o", "d", "x"], description: "overview/detailed/deep" },
+        types: {
           type: "array",
           items: {
             type: "string",
-            enum: [
-              "components",
-              "hooks",
-              "composables",
-              "providers",
-              "stores",
-              "navigation",
-              "state-management",
-              "data-flow",
-              "api-clients",
-              "server-routes",
-              "middleware",
-              "plugins",
-              "layouts",
-            ],
+            enum: ["comp", "hooks", "use", "prov", "store", "nav", "state", "flow", "api", "route", "mid", "plug", "layout"],
           },
-          description: "Specific analysis types to perform",
+          description: "Analysis types",
         },
-        generateDiagrams: {
-          type: "boolean",
-          description: "Generate Mermaid diagrams (default: true)",
-        },
-        includeMetrics: {
-          type: "boolean",
-          description: "Include code metrics (default: true)",
-        },
-        includeDetailedMetrics: {
-          type: "boolean",
-          description: "Include detailed per-file metrics with complexity, lines, imports, exports, and patterns (default: true)",
-        },
-        minComplexity: {
-          type: "number",
-          description: "Minimum complexity threshold for files in detailedMetrics (default: 0). Use this to filter out simple files and reduce response size.",
-        },
-        maxDetailedFiles: {
-          type: "number",
-          description: "Maximum number of files to include in detailedMetrics. Use this to limit response size for large projects.",
-        },
-        generateMemorySuggestions: {
-          type: "boolean",
-          description: "Generate suggestions for storing analysis results in LLM memory MCP (global/local/committed scopes). Default: false",
-        },
-        detectFramework: {
-          type: "boolean",
-          description: "Auto-detect framework (default: true)",
-        },
-        framework: {
-          type: "string",
-          enum: ["react", "react-native", "vue3", "nuxt3"],
-          description: "Force specific framework analysis",
-        },
+        diagrams: { type: "boolean", description: "Mermaid diagrams" },
+        metrics: { type: "boolean", description: "Code metrics" },
+        details: { type: "boolean", description: "Per-file metrics" },
+        minCx: { type: "number", description: "Min complexity filter" },
+        maxFiles: { type: "number", description: "Max files in details" },
+        memSuggest: { type: "boolean", description: "LLM memory suggestions" },
+        autoFw: { type: "boolean", description: "Auto-detect framework" },
+        fw: { type: "string", enum: ["react", "rn", "vue3", "nuxt3"], description: "Force framework" },
       },
     },
   },
   {
-    name: "code_analyze_dependency_graph",
-    description: "Visualize and analyze module dependencies, circular dependencies, and coupling metrics.",
+    name: "deps",
+    description: "Dependency graph, circular deps, coupling metrics",
     inputSchema: {
       type: "object",
       properties: {
-        projectPath: {
-          type: "string",
-          description: "Project root directory",
-        },
-        includeGlobs: {
-          type: "array",
-          items: { type: "string" },
-          description: "File patterns to include",
-        },
-        excludeGlobs: {
-          type: "array",
-          items: { type: "string" },
-          description: "File patterns to exclude",
-        },
-        depth: {
-          type: "number",
-          description: "Maximum dependency depth to analyze",
-        },
-        detectCircular: {
-          type: "boolean",
-          description: "Detect circular dependencies (default: true)",
-        },
-        calculateMetrics: {
-          type: "boolean",
-          description: "Calculate coupling and cohesion metrics (default: true)",
-        },
-        generateDiagram: {
-          type: "boolean",
-          description: "Generate Mermaid diagram (default: true)",
-        },
-        focusModule: {
-          type: "string",
-          description: "Focus analysis on specific module",
-        },
-        includeExternal: {
-          type: "boolean",
-          description: "Include node_modules dependencies (default: false)",
-        },
+        path: { type: "string", description: "Project root" },
+        inc: { type: "array", items: { type: "string" }, description: "Include globs" },
+        exc: { type: "array", items: { type: "string" }, description: "Exclude globs" },
+        depth: { type: "number", description: "Max depth" },
+        circular: { type: "boolean", description: "Detect circular" },
+        metrics: { type: "boolean", description: "Coupling/cohesion" },
+        diagram: { type: "boolean", description: "Mermaid diagram" },
+        focus: { type: "string", description: "Focus on module" },
+        external: { type: "boolean", description: "Include node_modules" },
       },
     },
   },
   {
-    name: "code_analyze_patterns",
-    description: "Detect framework-specific patterns, custom implementations, and adherence to best practices.",
+    name: "patterns",
+    description: "Detect framework patterns, best practices",
     inputSchema: {
       type: "object",
       properties: {
-        projectPath: {
-          type: "string",
-          description: "Project root directory",
-        },
-        patternTypes: {
+        path: { type: "string", description: "Project root" },
+        types: {
           type: "array",
           items: {
             type: "string",
-            enum: [
-              "hooks",
-              "hoc",
-              "render-props",
-              "compound-components",
-              "providers",
-              "custom-hooks",
-              "navigation",
-              "forms",
-              "data-fetching",
-              "error-handling",
-              "testing",
-              "composables",
-              "pinia-stores",
-              "vue-plugins",
-              "nuxt-modules",
-              "nuxt-middleware",
-              "nuxt-server-routes",
-              "vue-directives",
-            ],
+            enum: ["hooks", "hoc", "rp", "cc", "prov", "nav", "form", "fetch", "err", "test", "use", "pinia", "plug", "mod", "mid", "dir"],
           },
-          description: "Pattern types to detect",
+          description: "Pattern types",
         },
-        includeGlobs: {
-          type: "array",
-          items: { type: "string" },
-          description: "File patterns to include",
-        },
-        excludeGlobs: {
-          type: "array",
-          items: { type: "string" },
-          description: "File patterns to exclude",
-        },
-        detectCustomPatterns: {
-          type: "boolean",
-          description: "Find project-specific patterns (default: false)",
-        },
-        compareWithBestPractices: {
-          type: "boolean",
-          description: "Compare against industry standards (default: false)",
-        },
-        suggestImprovements: {
-          type: "boolean",
-          description: "Recommend refactoring (default: false)",
-        },
+        inc: { type: "array", items: { type: "string" }, description: "Include globs" },
+        exc: { type: "array", items: { type: "string" }, description: "Exclude globs" },
+        custom: { type: "boolean", description: "Custom patterns" },
+        best: { type: "boolean", description: "Compare best practices" },
+        suggest: { type: "boolean", description: "Improvement suggestions" },
       },
     },
   },
   {
-    name: "code_analyze_coverage_gaps",
-    description: "Identify untested code with actionable test suggestions based on complexity and criticality.",
+    name: "coverage",
+    description: "Test coverage gaps, actionable suggestions",
     inputSchema: {
       type: "object",
       properties: {
-        projectPath: {
-          type: "string",
-          description: "Project root directory",
-        },
-        coverageReportPath: {
-          type: "string",
-          description: "Path to coverage report (lcov or JSON)",
-        },
-        framework: {
-          type: "string",
-          enum: ["jest", "vitest", "playwright"],
-          description: "Test framework being used",
-        },
+        path: { type: "string", description: "Project root" },
+        report: { type: "string", description: "Coverage report path" },
+        fw: { type: "string", enum: ["jest", "vitest", "pw"], description: "Test framework" },
         threshold: {
           type: "object",
           properties: {
@@ -251,131 +119,50 @@ const TOOLS: Tool[] = [
             branches: { type: "number" },
             statements: { type: "number" },
           },
-          description: "Minimum coverage thresholds",
+          description: "Min thresholds",
         },
-        priority: {
-          type: "string",
-          enum: ["critical", "high", "medium", "low", "all"],
-          description: "Filter by priority level",
-        },
-        includeGlobs: {
-          type: "array",
-          items: { type: "string" },
-          description: "File patterns to include",
-        },
-        excludeGlobs: {
-          type: "array",
-          items: { type: "string" },
-          description: "File patterns to exclude",
-        },
-        suggestTests: {
-          type: "boolean",
-          description: "Generate test scaffolds (default: true)",
-        },
-        analyzeComplexity: {
-          type: "boolean",
-          description: "Consider cyclomatic complexity (default: false)",
-        },
+        priority: { type: "string", enum: ["crit", "high", "med", "low", "all"], description: "Filter priority" },
+        inc: { type: "array", items: { type: "string" }, description: "Include globs" },
+        exc: { type: "array", items: { type: "string" }, description: "Exclude globs" },
+        tests: { type: "boolean", description: "Generate scaffolds" },
+        cx: { type: "boolean", description: "Analyze complexity" },
       },
     },
   },
   {
-    name: "code_validate_conventions",
-    description: "Validate adherence to project-specific naming, structure, and coding conventions.",
+    name: "conventions",
+    description: "Validate naming, structure, code conventions",
     inputSchema: {
       type: "object",
       properties: {
-        projectPath: {
-          type: "string",
-          description: "Project root directory",
-        },
-        conventions: {
-          type: "object",
-          description: "Convention rules to validate against",
-        },
-        autodetectConventions: {
-          type: "boolean",
-          description: "Learn conventions from existing code (default: false)",
-        },
-        includeGlobs: {
-          type: "array",
-          items: { type: "string" },
-          description: "File patterns to include",
-        },
-        excludeGlobs: {
-          type: "array",
-          items: { type: "string" },
-          description: "File patterns to exclude",
-        },
-        severity: {
-          type: "string",
-          enum: ["error", "warning", "info"],
-          description: "Minimum severity to report",
-        },
+        path: { type: "string", description: "Project root" },
+        rules: { type: "object", description: "Convention rules" },
+        auto: { type: "boolean", description: "Auto-detect conventions" },
+        inc: { type: "array", items: { type: "string" }, description: "Include globs" },
+        exc: { type: "array", items: { type: "string" }, description: "Exclude globs" },
+        severity: { type: "string", enum: ["err", "warn", "info"], description: "Min severity" },
       },
     },
   },
   {
-    name: "code_generate_context_pack",
-    description: "Build optimal AI context given a task, respecting token limits and maximizing relevance.",
+    name: "context",
+    description: "Build AI context pack for task",
     inputSchema: {
       type: "object",
       properties: {
-        task: {
-          type: "string",
-          description: "User's task description (required)",
-        },
-        projectPath: {
-          type: "string",
-          description: "Project root directory",
-        },
-        maxTokens: {
-          type: "number",
-          description: "Token budget (default: 50000)",
-        },
-        includeTypes: {
+        task: { type: "string", description: "Task description" },
+        path: { type: "string", description: "Project root" },
+        tokens: { type: "number", description: "Token budget" },
+        include: {
           type: "array",
-          items: {
-            type: "string",
-            enum: [
-              "relevant-files",
-              "dependencies",
-              "tests",
-              "types",
-              "architecture",
-              "conventions",
-              "related-code",
-              "composables",
-              "stores",
-              "server-routes",
-              "nuxt-config",
-            ],
-          },
-          description: "What to include in context",
+          items: { type: "string", enum: ["files", "deps", "tests", "types", "arch", "conv", "code", "use", "store", "route", "cfg"] },
+          description: "Content types",
         },
-        focusAreas: {
-          type: "array",
-          items: { type: "string" },
-          description: "Specific files/directories to prioritize",
-        },
-        includeHistory: {
-          type: "boolean",
-          description: "Include recent changes from git (default: false)",
-        },
-        format: {
-          type: "string",
-          enum: ["markdown", "json", "xml"],
-          description: "Output format (default: markdown)",
-        },
-        includeLineNumbers: {
-          type: "boolean",
-          description: "Add line numbers to code (default: true)",
-        },
-        optimizationStrategy: {
-          type: "string",
-          enum: ["relevance", "breadth", "depth"],
-          description: "Context optimization strategy (default: relevance)",
-        },
+        focus: { type: "array", items: { type: "string" }, description: "Priority files/dirs" },
+        history: { type: "boolean", description: "Git changes" },
+        format: { type: "string", enum: ["md", "json", "xml"], description: "Output format" },
+        lineNums: { type: "boolean", description: "Line numbers" },
+        strategy: { type: "string", enum: ["rel", "wide", "deep"], description: "Optimization strategy" },
       },
       required: ["task"],
     },
@@ -396,29 +183,115 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
   return { tools: TOOLS };
 });
 
+// Parameter mapping: short -> long names
+function mapParams(tool: string, args: any): any {
+  if (!args) return args;
+
+  const mapped: any = {};
+
+  // Common mappings
+  if ('path' in args) mapped.projectPath = args.path;
+  if ('inc' in args) mapped.includeGlobs = args.inc;
+  if ('exc' in args) mapped.excludeGlobs = args.exc;
+
+  // Tool-specific mappings
+  switch (tool) {
+    case "arch":
+      if ('depth' in args) mapped.depth = args.depth === 'o' ? 'overview' : args.depth === 'd' ? 'detailed' : 'deep';
+      if ('types' in args) mapped.analyzeTypes = args.types;
+      if ('diagrams' in args) mapped.generateDiagrams = args.diagrams;
+      if ('metrics' in args) mapped.includeMetrics = args.metrics;
+      if ('details' in args) mapped.includeDetailedMetrics = args.details;
+      if ('minCx' in args) mapped.minComplexity = args.minCx;
+      if ('maxFiles' in args) mapped.maxDetailedFiles = args.maxFiles;
+      if ('memSuggest' in args) mapped.generateMemorySuggestions = args.memSuggest;
+      if ('autoFw' in args) mapped.detectFramework = args.autoFw;
+      if ('fw' in args) mapped.framework = args.fw === 'rn' ? 'react-native' : args.fw;
+      break;
+
+    case "deps":
+      if ('depth' in args) mapped.depth = args.depth;
+      if ('circular' in args) mapped.detectCircular = args.circular;
+      if ('metrics' in args) mapped.calculateMetrics = args.metrics;
+      if ('diagram' in args) mapped.generateDiagram = args.diagram;
+      if ('focus' in args) mapped.focusModule = args.focus;
+      if ('external' in args) mapped.includeExternal = args.external;
+      break;
+
+    case "patterns":
+      if ('types' in args) mapped.patternTypes = args.types;
+      if ('custom' in args) mapped.detectCustomPatterns = args.custom;
+      if ('best' in args) mapped.compareWithBestPractices = args.best;
+      if ('suggest' in args) mapped.suggestImprovements = args.suggest;
+      break;
+
+    case "coverage":
+      if ('report' in args) mapped.coverageReportPath = args.report;
+      if ('fw' in args) mapped.framework = args.fw === 'pw' ? 'playwright' : args.fw;
+      if ('threshold' in args) mapped.threshold = args.threshold;
+      if ('priority' in args) {
+        const p = args.priority;
+        mapped.priority = p === 'crit' ? 'critical' : p === 'med' ? 'medium' : p;
+      }
+      if ('tests' in args) mapped.suggestTests = args.tests;
+      if ('cx' in args) mapped.analyzeComplexity = args.cx;
+      break;
+
+    case "conventions":
+      if ('rules' in args) mapped.conventions = args.rules;
+      if ('auto' in args) mapped.autodetectConventions = args.auto;
+      if ('severity' in args) {
+        const s = args.severity;
+        mapped.severity = s === 'err' ? 'error' : s === 'warn' ? 'warning' : s;
+      }
+      break;
+
+    case "context":
+      if ('task' in args) mapped.task = args.task;
+      if ('tokens' in args) mapped.maxTokens = args.tokens;
+      if ('include' in args) mapped.includeTypes = args.include;
+      if ('focus' in args) mapped.focusAreas = args.focus;
+      if ('history' in args) mapped.includeHistory = args.history;
+      if ('format' in args) {
+        const f = args.format;
+        mapped.format = f === 'md' ? 'markdown' : f;
+      }
+      if ('lineNums' in args) mapped.includeLineNumbers = args.lineNums;
+      if ('strategy' in args) {
+        const st = args.strategy;
+        mapped.optimizationStrategy = st === 'rel' ? 'relevance' : st === 'wide' ? 'breadth' : st === 'deep' ? 'depth' : st;
+      }
+      break;
+  }
+
+  return mapped;
+}
+
 // Handle tool calls
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
   try {
+    const mappedArgs = mapParams(name, args);
+
     switch (name) {
-      case "code_analyze_architecture":
-        return await analyzeArchitecture(args as any);
+      case "arch":
+        return await analyzeArchitecture(mappedArgs as any);
 
-      case "code_analyze_dependency_graph":
-        return await analyzeDependencyGraph(args as any);
+      case "deps":
+        return await analyzeDependencyGraph(mappedArgs as any);
 
-      case "code_analyze_patterns":
-        return await analyzePatterns(args as any);
+      case "patterns":
+        return await analyzePatterns(mappedArgs as any);
 
-      case "code_analyze_coverage_gaps":
-        return await analyzeCoverageGaps(args as any);
+      case "coverage":
+        return await analyzeCoverageGaps(mappedArgs as any);
 
-      case "code_validate_conventions":
-        return await validateConventions(args as any);
+      case "conventions":
+        return await validateConventions(mappedArgs as any);
 
-      case "code_generate_context_pack":
-        return await generateContextPack(args as any);
+      case "context":
+        return await generateContextPack(mappedArgs as any);
 
       default:
         throw new Error(`Unknown tool: ${name}`);

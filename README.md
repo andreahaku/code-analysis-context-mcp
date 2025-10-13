@@ -67,45 +67,45 @@ Add to your MCP client configuration (e.g., Claude Desktop):
 
 ### Available Tools
 
-#### 1. `code_analyze_architecture`
+#### 1. `arch`
 
 Generate comprehensive architectural overview:
 
 **React / React Native projects:**
 ```typescript
 {
-  "projectPath": "/path/to/react-project",
-  "depth": "detailed",
-  "analyzeTypes": ["components", "hooks", "navigation"],
-  "generateDiagrams": true,
-  "includeMetrics": true,
-  "includeDetailedMetrics": true,  // Include per-file metrics
-  "minComplexity": 15,              // Only show files with complexity >= 15
-  "maxDetailedFiles": 20            // Limit to top 20 most complex files
+  "path": "/path/to/react-project",
+  "depth": "d",
+  "types": ["comp", "hooks", "nav"],
+  "diagrams": true,
+  "metrics": true,
+  "details": true,  // Include per-file metrics
+  "minCx": 15,      // Only show files with complexity >= 15
+  "maxFiles": 20    // Limit to top 20 most complex files
 }
 ```
 
 **Nuxt 3/4 & Vue 3 projects:**
 ```typescript
 {
-  "projectPath": "/path/to/nuxt-project",
-  "depth": "detailed",
-  "analyzeTypes": ["components", "composables", "stores", "server-routes", "layouts", "middleware"],
-  "framework": "nuxt3",             // or "vue3"
-  "generateDiagrams": true,
-  "includeMetrics": true,
-  "includeDetailedMetrics": true,
-  "minComplexity": 10,
-  "maxDetailedFiles": 30
+  "path": "/path/to/nuxt-project",
+  "depth": "d",
+  "types": ["comp", "use", "store", "route", "layout", "mid"],
+  "fw": "nuxt3",    // or "vue3"
+  "diagrams": true,
+  "metrics": true,
+  "details": true,
+  "minCx": 10,
+  "maxFiles": 30
 }
 ```
 
 **New Features**:
 
-- **Per-file metrics**: Set `includeDetailedMetrics: true` to get complexity, lines, imports/exports, and patterns
+- **Per-file metrics**: Set `details: true` to get complexity, lines, imports/exports, and patterns
 - **Auto-optimization**: For projects >100 files, automatically filters to complexity ≥ 10 (top 50 files) to reduce response size
-- **Complexity filtering**: Use `minComplexity` to only show files above a threshold (e.g., 15 for refactoring candidates)
-- **Result limiting**: Use `maxDetailedFiles` to limit response size for large projects (e.g., top 20 most complex)
+- **Complexity filtering**: Use `minCx` to only show files above a threshold (e.g., 15 for refactoring candidates)
+- **Result limiting**: Use `maxFiles` to limit response size for large projects (e.g., top 20 most complex)
 - **Automatic framework globs**: Supports both root-level and `src/` directory structures for all frameworks
 - Files automatically sorted by complexity (most complex first)
 
@@ -113,7 +113,7 @@ Generate comprehensive architectural overview:
 
 - Small projects (<100 files): Returns all files (~5-10k tokens)
 - Large projects (>100 files): Auto-filters to complexity ≥ 10, top 50 files (~3-5k tokens) ⭐
-- Override with explicit `minComplexity: 0` or `maxDetailedFiles: 999` if you need all files
+- Override with explicit `minCx: 0` or `maxFiles: 999` if you need all files
 
 **LLM Memory Integration** 🧠:
 
@@ -121,9 +121,9 @@ Store analysis results in the [llm_memory MCP](https://github.com/andreahaku/llm
 
 ```typescript
 {
-  "projectPath": "/path/to/project",
-  "includeDetailedMetrics": true,
-  "generateMemorySuggestions": true  // Generate memory suggestions
+  "path": "/path/to/project",
+  "details": true,
+  "memSuggest": true  // Generate memory suggestions
 }
 ```
 
@@ -193,21 +193,21 @@ memory_upsert({
 - 🌍 Reusable patterns stored globally (framework best practices)
 - 👥 Team-visible technical debt tracking (committed scope)
 
-#### 2. `code_analyze_dependency_graph`
+#### 2. `deps`
 
 Visualize and analyze module dependencies with circular dependency detection, coupling metrics, and dependency hotspot identification:
 
 ```typescript
 {
-  "projectPath": "/path/to/project",
-  "includeGlobs": ["src/**/*.{ts,tsx,js,jsx,vue}"],
-  "excludeGlobs": ["**/node_modules/**", "**/*.test.*"],
-  "detectCircular": true,           // Detect circular dependencies
-  "calculateMetrics": true,          // Calculate coupling/cohesion/stability
-  "generateDiagram": true,           // Generate Mermaid diagram
-  "focusModule": "src/services",     // Focus on specific module
-  "depth": 3,                        // Maximum dependency depth
-  "includeExternal": false           // Include node_modules dependencies
+  "path": "/path/to/project",
+  "inc": ["src/**/*.{ts,tsx,js,jsx,vue}"],
+  "exc": ["**/node_modules/**", "**/*.test.*"],
+  "circular": true,      // Detect circular dependencies
+  "metrics": true,       // Calculate coupling/cohesion/stability
+  "diagram": true,       // Generate Mermaid diagram
+  "focus": "src/services",  // Focus on specific module
+  "depth": 3,            // Maximum dependency depth
+  "external": false      // Include node_modules dependencies
 }
 ```
 
@@ -326,29 +326,29 @@ Visualize and analyze module dependencies with circular dependency detection, co
 4. **Assess Modularity**: Coupling and stability metrics
 5. **Visualize Dependencies**: Mermaid diagrams for team discussions
 
-#### 3. `code_analyze_patterns`
+#### 3. `patterns`
 
 Detect framework-specific patterns, custom implementations, and antipatterns:
 
 **React projects:**
 ```typescript
 {
-  "projectPath": "/path/to/react-project",
-  "patternTypes": ["hooks", "hoc", "providers", "render-props"],
-  "detectCustomPatterns": true,
-  "compareWithBestPractices": true,
-  "suggestImprovements": true
+  "path": "/path/to/react-project",
+  "types": ["hooks", "hoc", "prov", "rp"],
+  "custom": true,
+  "best": true,
+  "suggest": true
 }
 ```
 
 **Nuxt 3/Vue 3 projects:**
 ```typescript
 {
-  "projectPath": "/path/to/nuxt-project",
-  "patternTypes": ["composables", "pinia-stores", "vue-plugins", "nuxt-modules", "nuxt-middleware"],
-  "detectCustomPatterns": true,
-  "compareWithBestPractices": true,
-  "suggestImprovements": true
+  "path": "/path/to/nuxt-project",
+  "types": ["use", "pinia", "plug", "mod", "mid"],
+  "custom": true,
+  "best": true,
+  "suggest": true
 }
 ```
 
@@ -390,10 +390,10 @@ Detect framework-specific patterns, custom implementations, and antipatterns:
 
 **Parameters:**
 
-- `patternTypes`: Filter specific pattern types to detect
-- `detectCustomPatterns`: Identify frequently used custom patterns (≥3 files)
-- `compareWithBestPractices`: Compare against industry standards
-- `suggestImprovements`: Get detailed refactoring recommendations
+- `types`: Filter specific pattern types to detect
+- `custom`: Identify frequently used custom patterns (≥3 files)
+- `best`: Compare against industry standards
+- `suggest`: Get detailed refactoring recommendations
 
 **Example Output:**
 
@@ -468,26 +468,26 @@ Detect framework-specific patterns, custom implementations, and antipatterns:
 }
 ```
 
-#### 4. `code_analyze_coverage_gaps`
+#### 4. `coverage`
 
 Identify untested code with meaningful, actionable test suggestions prioritized by criticality and complexity:
 
 ```typescript
 {
-  "projectPath": "/path/to/project",
-  "coverageReportPath": "coverage/lcov.info",           // Optional: LCOV or JSON
-  "framework": "vitest",                                 // Auto-detected if not specified
-  "threshold": {                                         // Coverage thresholds
+  "path": "/path/to/project",
+  "report": "coverage/lcov.info",  // Optional: LCOV or JSON
+  "fw": "vitest",                  // Auto-detected if not specified
+  "threshold": {                   // Coverage thresholds
     "lines": 80,
     "functions": 80,
     "branches": 75,
     "statements": 80
   },
-  "priority": "high",                                    // "critical" | "high" | "medium" | "low" | "all"
-  "includeGlobs": ["src/**/*.{ts,tsx,js,jsx,vue}"],
-  "excludeGlobs": ["**/*.test.*", "**/*.spec.*"],
-  "suggestTests": true,                                  // Generate test scaffolds
-  "analyzeComplexity": true                              // Factor complexity into priority
+  "priority": "high",              // "crit" | "high" | "med" | "low" | "all"
+  "inc": ["src/**/*.{ts,tsx,js,jsx,vue}"],
+  "exc": ["**/*.test.*", "**/*.spec.*"],
+  "tests": true,                   // Generate test scaffolds
+  "cx": true                       // Factor complexity into priority
 }
 ```
 
@@ -1004,16 +1004,16 @@ Identify untested code with meaningful, actionable test suggestions prioritized 
    - Identify files below threshold
    - CI/CD integration ready
 
-#### 5. `code_validate_conventions`
+#### 5. `conventions`
 
 Validate adherence to project-specific naming, structure, and coding conventions with intelligent auto-detection and auto-fix capabilities:
 
 ```typescript
 {
-  "projectPath": "/path/to/project",
-  "includeGlobs": ["**/*.{ts,tsx,js,jsx,vue}"],
-  "excludeGlobs": ["**/node_modules/**", "**/dist/**"],
-  "conventions": {                    // Optional: Provide custom conventions
+  "path": "/path/to/project",
+  "inc": ["**/*.{ts,tsx,js,jsx,vue}"],
+  "exc": ["**/node_modules/**", "**/dist/**"],
+  "rules": {                         // Optional: Provide custom conventions
     "naming": {
       "components": {
         "pattern": "PascalCase",
@@ -1033,11 +1033,8 @@ Validate adherence to project-specific naming, structure, and coding conventions
       "semicolons": true
     }
   },
-  "autodetectConventions": true,     // Auto-detect from existing code
-  "severity": "warning",              // Minimum severity: "error" | "warning" | "info"
-  "autoFix": true,                    // Generate auto-fix suggestions
-  "applyAutoFixes": false,            // Actually apply safe fixes
-  "framework": "react"                // Auto-detected if not specified
+  "auto": true,                      // Auto-detect from existing code
+  "severity": "warn"                 // Minimum severity: "err" | "warn" | "info"
 }
 ```
 
@@ -1374,41 +1371,24 @@ Validate adherence to project-specific naming, structure, and coding conventions
 
 ```typescript
 // 1. Initial analysis - detect what conventions exist
-code_validate_conventions({
-  projectPath: "/path/to/project",
-  autodetectConventions: true
+conventions({
+  path: "/path/to/project",
+  auto: true
 });
 // → Returns detected patterns with confidence scores
 
 // 2. Validate against detected conventions
-code_validate_conventions({
-  projectPath: "/path/to/project",
-  autodetectConventions: true,
-  severity: "warning"  // Only show warnings and errors
+conventions({
+  path: "/path/to/project",
+  auto: true,
+  severity: "warn"  // Only show warnings and errors
 });
 // → Returns violations with severity ≥ warning
 
-// 3. Generate auto-fix suggestions
-code_validate_conventions({
-  projectPath: "/path/to/project",
-  autodetectConventions: true,
-  autoFix: true
-});
-// → Returns violations with auto-fix suggestions
-
-// 4. Apply safe auto-fixes (renames, reordering)
-code_validate_conventions({
-  projectPath: "/path/to/project",
-  autodetectConventions: true,
-  autoFix: true,
-  applyAutoFixes: true  // ⚠️ Actually modifies files
-});
-// → Applies safe fixes automatically
-
-// 5. Validate against custom conventions
-code_validate_conventions({
-  projectPath: "/path/to/project",
-  conventions: {
+// 3. Validate against custom conventions
+conventions({
+  path: "/path/to/project",
+  rules: {
     naming: {
       components: {
         pattern: "kebab-case",
@@ -1420,7 +1400,7 @@ code_validate_conventions({
 // → Validates against your specific rules
 ```
 
-#### 6. `code_generate_context_pack`
+#### 6. `context`
 
 Build optimal AI context packs for LLM tools (Claude Code, Codex, Cursor) by intelligently selecting and ranking files based on task relevance:
 
@@ -1428,14 +1408,14 @@ Build optimal AI context packs for LLM tools (Claude Code, Codex, Cursor) by int
 ```typescript
 {
   "task": "Add authentication with JWT tokens and refresh logic",
-  "projectPath": "/path/to/react-project",
-  "maxTokens": 50000,
-  "includeTypes": ["relevant-files", "architecture", "dependencies", "tests"],
-  "focusAreas": ["src/auth", "src/hooks"],
-  "includeHistory": false,
-  "format": "markdown",
-  "includeLineNumbers": true,
-  "optimizationStrategy": "relevance"
+  "path": "/path/to/react-project",
+  "tokens": 50000,
+  "include": ["files", "arch", "deps", "tests"],
+  "focus": ["src/auth", "src/hooks"],
+  "history": false,
+  "format": "md",
+  "lineNums": true,
+  "strategy": "rel"
 }
 ```
 
@@ -1443,14 +1423,14 @@ Build optimal AI context packs for LLM tools (Claude Code, Codex, Cursor) by int
 ```typescript
 {
   "task": "Add user profile management with Pinia store",
-  "projectPath": "/path/to/nuxt-project",
-  "maxTokens": 50000,
-  "includeTypes": ["relevant-files", "architecture", "dependencies", "tests"],
-  "focusAreas": ["composables", "stores", "server"],
-  "includeHistory": false,
-  "format": "markdown",
-  "includeLineNumbers": true,
-  "optimizationStrategy": "relevance"
+  "path": "/path/to/nuxt-project",
+  "tokens": 50000,
+  "include": ["files", "arch", "deps", "tests"],
+  "focus": ["composables", "stores", "server"],
+  "history": false,
+  "format": "md",
+  "lineNums": true,
+  "strategy": "rel"
 }
 ```
 
@@ -1687,20 +1667,20 @@ Ask Claude Code: _"Find the most complex files in my project that need refactori
 **Optimized approach** (filters at source, reduces response size):
 
 ```typescript
-code_analyze_architecture({
-  projectPath: "/path/to/project",
-  includeDetailedMetrics: true,
-  minComplexity: 15, // Only files with complexity >= 15
-  maxDetailedFiles: 20, // Top 20 most complex files
+arch({
+  path: "/path/to/project",
+  details: true,
+  minCx: 15,     // Only files with complexity >= 15
+  maxFiles: 20   // Top 20 most complex files
 });
 ```
 
 **Previous approach** (returns all files, larger response):
 
 ```typescript
-code_analyze_architecture({
-  projectPath: "/path/to/project",
-  includeDetailedMetrics: true,
+arch({
+  path: "/path/to/project",
+  details: true
   // Claude then filters the results manually
 });
 ```
@@ -1732,14 +1712,14 @@ Combine architecture analysis with coverage analysis:
 
 ```typescript
 // Step 1: Get complexity metrics
-code_analyze_architecture({
-  includeDetailedMetrics: true,
+arch({
+  details: true
 });
 
 // Step 2: Analyze test coverage
-code_analyze_coverage_gaps({
-  coverageReportPath: "coverage/coverage-summary.json",
-  priority: "high",
+coverage({
+  report: "coverage/coverage-summary.json",
+  priority: "high"
 });
 
 // Claude will correlate high complexity files with missing tests
@@ -1752,11 +1732,11 @@ code_analyze_coverage_gaps({
 Ask Claude Code: _"Show me files with the most dependencies and check for circular dependencies"_
 
 ```typescript
-code_analyze_dependency_graph({
-  projectPath: "/path/to/project",
-  detectCircular: true,
-  calculateMetrics: true,
-  generateDiagram: true,
+deps({
+  path: "/path/to/project",
+  circular: true,
+  metrics: true,
+  diagram: true
 });
 ```
 
@@ -1772,9 +1752,9 @@ code_analyze_dependency_graph({
 Ask Claude Code: _"Check if my project follows Nuxt 3 naming conventions"_
 
 ```typescript
-code_validate_conventions({
-  projectPath: "/path/to/project",
-  autodetectConventions: true,
+conventions({
+  path: "/path/to/project",
+  auto: true
 });
 ```
 
@@ -1790,11 +1770,11 @@ code_validate_conventions({
 Ask Claude Code: _"I want to add authentication to my app. Give me the relevant context"_
 
 ```typescript
-code_generate_context_pack({
+context({
   task: "Add authentication with JWT tokens",
-  projectPath: "/path/to/project",
-  maxTokens: 50000,
-  includeTypes: ["relevant-files", "architecture", "patterns", "conventions"],
+  path: "/path/to/project",
+  tokens: 50000,
+  include: ["files", "arch", "patterns", "conv"]
 });
 ```
 
@@ -1812,14 +1792,14 @@ code_generate_context_pack({
 
 ```bash
 # Run analysis and save results
-code_analyze_architecture > analysis-baseline.json
+arch > analysis-baseline.json
 ```
 
 **Monthly review:**
 
 ```bash
 # Compare current metrics with baseline
-code_analyze_architecture > analysis-current.json
+arch > analysis-current.json
 # Use Claude to compare: "Compare these two analyses and show me complexity trends"
 ```
 
@@ -1837,9 +1817,9 @@ Ask Claude Code: _"Analyze the files I just changed and identify any complexity 
 
 ```typescript
 // Analyze specific files from git diff
-code_analyze_architecture({
-  includeGlobs: ["src/components/Dashboard.tsx", "src/hooks/useAuth.ts"],
-  includeDetailedMetrics: true,
+arch({
+  inc: ["src/components/Dashboard.tsx", "src/hooks/useAuth.ts"],
+  details: true
 });
 ```
 
@@ -1854,11 +1834,11 @@ code_analyze_architecture({
 Ask Claude Code: _"Analyze my project's dependencies and identify any circular dependencies or tightly coupled modules"_
 
 ```typescript
-code_analyze_dependency_graph({
-  projectPath: "/path/to/project",
-  detectCircular: true,
-  calculateMetrics: true,
-  generateDiagram: true,
+deps({
+  path: "/path/to/project",
+  circular: true,
+  metrics: true,
+  diagram: true
 });
 ```
 
@@ -1914,7 +1894,7 @@ The Mermaid diagram shows:
 
 ```bash
 # Step 1: Initial analysis
-code_analyze_dependency_graph({ detectCircular: true })
+deps({ circular: true })
 
 # Output: Found 3 circular dependencies
 # - src/services/auth.ts ↔ src/services/user.ts
@@ -1922,8 +1902,8 @@ code_analyze_dependency_graph({ detectCircular: true })
 # - src/components/Form.tsx ↔ src/utils/validation.ts
 
 # Step 2: Focus on specific module to understand its dependencies
-code_analyze_dependency_graph({
-  focusModule: "src/services/auth.ts",
+deps({
+  focus: "src/services/auth.ts",
   depth: 2
 })
 
@@ -1931,7 +1911,7 @@ code_analyze_dependency_graph({
 # Extract shared interfaces, apply dependency injection
 
 # Step 4: Verify fix
-code_analyze_dependency_graph({ detectCircular: true })
+deps({ circular: true })
 # Output: ✅ No circular dependencies detected
 ```
 
@@ -1950,11 +1930,11 @@ Ask Claude Code: _"Analyze my React Native project's architecture and identify u
 
 ```typescript
 // Step 1: Analyze mobile architecture
-code_analyze_architecture({
-  projectPath: "/path/to/mobile-app",
-  depth: "detailed",
-  analyzeTypes: ["components", "hooks", "navigation"],
-  framework: "react-native",  // or "expo"
+arch({
+  path: "/path/to/mobile-app",
+  depth: "d",
+  types: ["comp", "hooks", "nav"],
+  fw: "rn"  // or leave out for auto-detect
 });
 ```
 
@@ -1986,11 +1966,11 @@ code_analyze_architecture({
 **Coverage Analysis for Mobile:**
 
 ```typescript
-code_analyze_coverage_gaps({
-  projectPath: "/path/to/mobile-app",
-  framework: "jest",  // React Native Testing Library uses Jest
+coverage({
+  path: "/path/to/mobile-app",
+  fw: "jest",      // React Native Testing Library uses Jest
   priority: "high",
-  suggestTests: true,
+  tests: true
 });
 ```
 
@@ -2009,10 +1989,10 @@ code_analyze_coverage_gaps({
 **Pattern Detection for Mobile:**
 
 ```typescript
-code_analyze_patterns({
-  projectPath: "/path/to/mobile-app",
-  patternTypes: ["hooks", "navigation", "platform-specific"],
-  detectCustomPatterns: true,
+patterns({
+  path: "/path/to/mobile-app",
+  types: ["hooks", "nav"],
+  custom: true
 });
 ```
 
@@ -2028,11 +2008,11 @@ code_analyze_patterns({
 **Context Pack for Mobile Development:**
 
 ```typescript
-code_generate_context_pack({
+context({
   task: "Add biometric authentication to login screen",
-  projectPath: "/path/to/mobile-app",
-  maxTokens: 50000,
-  includeTypes: ["relevant-files", "architecture", "patterns"],
+  path: "/path/to/mobile-app",
+  tokens: 50000,
+  include: ["files", "arch", "patterns"]
 });
 ```
 
@@ -2051,10 +2031,10 @@ Ask Claude Code: _"Analyze my project and store key insights in memory for futur
 Uses the [llm_memory MCP](https://github.com/andreahaku/llm_memory_mcp) server to persist analysis results across conversations.
 
 ```typescript
-code_analyze_architecture({
-  projectPath: "/path/to/project",
-  includeDetailedMetrics: true,
-  generateMemorySuggestions: true,
+arch({
+  path: "/path/to/project",
+  details: true,
+  memSuggest: true
 });
 ```
 
