@@ -21,6 +21,10 @@ import type {
   OptimizationStrategy,
 } from "../types/index.js";
 
+// MCP protocol limits
+const MCP_MAX_RESPONSE_TOKENS = 25000;
+const MCP_SAFE_RESPONSE_TOKENS = 20000; // Leave buffer for metadata
+
 export async function generateContextPack(
   params: ContextPackParams
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
@@ -105,21 +109,135 @@ export async function generateContextPack(
 
   // Step 10: Calculate token usage
   const tokensUsed = calculateTokensUsed(selectedFiles, architectureContext);
-  const formattedOutputTokens = estimateTokens(formattedOutput);
-  const totalResponseTokens = tokensUsed + formattedOutputTokens + 1000; // +1000 for metadata overhead
 
-  // Auto-optimization: If response would be too large (>20k tokens), truncate formattedOutput
-  let optimizedFormattedOutput = formattedOutput;
-  let responseOptimized = false;
+  // Step 11: Build result and enforce MCP response size limits
+  let result = buildResult(
+    task,
+    taskAnalysis,
+    optimizationStrategy,
+    maxTokens,
+    tokensUsed,
+    selectedFiles,
+    architectureContext,
+    formattedOutput,
+    files.length
+  );
 
-  if (totalResponseTokens > 20000) {
-    responseOptimized = true;
-    // Provide summary instead of full formatted output to avoid duplication
-    optimizedFormattedOutput = `[Formatted output truncated to prevent MCP token limit. Use 'files' array for file contents.]`;
+  // Step 12: Enforce MCP response size limit (25k tokens max)
+  let resultJson = JSON.stringify(result, null, 2);
+  let resultTokens = estimateTokens(resultJson);
+  const optimizations: string[] = [];
+
+  // Progressive optimization to fit MCP limits
+  if (resultTokens > MCP_SAFE_RESPONSE_TOKENS) {
+    optimizations.push(`Initial response: ${resultTokens} tokens (exceeds ${MCP_SAFE_RESPONSE_TOKENS} limit)`);
+
+    // Stage 1: Remove formatted output (it duplicates file contents)
+    if (result.formattedOutput && result.formattedOutput.length > 100) {
+      result.formattedOutput = `[Formatted output removed to fit MCP 25k token limit. Use 'files' array for file contents.]`;
+      resultJson = JSON.stringify(result, null, 2);
+      resultTokens = estimateTokens(resultJson);
+      optimizations.push(`After removing formatted output: ${resultTokens} tokens`);
+    }
+
+    // Stage 2: Truncate file contents if still too large
+    if (resultTokens > MCP_SAFE_RESPONSE_TOKENS && result.files.length > 0) {
+      const targetFileTokens = MCP_SAFE_RESPONSE_TOKENS * 0.7; // 70% for file contents
+      result.files = truncateFilesContent(result.files, targetFileTokens);
+      resultJson = JSON.stringify(result, null, 2);
+      resultTokens = estimateTokens(resultJson);
+      optimizations.push(`After truncating file contents: ${resultTokens} tokens`);
+    }
+
+    // Stage 3: Reduce number of files if still too large
+    if (resultTokens > MCP_SAFE_RESPONSE_TOKENS && result.files.length > 5) {
+      const keepFiles = Math.max(5, Math.floor(result.files.length * 0.5));
+      result.files = result.files.slice(0, keepFiles);
+      result.metadata.filesIncluded = result.files.length;
+      resultJson = JSON.stringify(result, null, 2);
+      resultTokens = estimateTokens(resultJson);
+      optimizations.push(`After reducing to ${keepFiles} files: ${resultTokens} tokens`);
+    }
+
+    // Stage 4: Remove architecture details if still too large
+    if (resultTokens > MCP_SAFE_RESPONSE_TOKENS && result.architecture) {
+      result.architecture = {
+        framework: result.architecture.framework,
+        overview: result.architecture.overview,
+        stateManagement: result.architecture.stateManagement,
+        navigation: result.architecture.navigation,
+        structure: undefined as any,
+      };
+      resultJson = JSON.stringify(result, null, 2);
+      resultTokens = estimateTokens(resultJson);
+      optimizations.push(`After simplifying architecture: ${resultTokens} tokens`);
+    }
+
+    // Stage 5: Emergency - return minimal summary
+    if (resultTokens > MCP_MAX_RESPONSE_TOKENS) {
+      optimizations.push(`⚠️ EMERGENCY REDUCTION: Response still ${resultTokens} tokens`);
+      result = {
+        ...result,
+        files: result.files.slice(0, 3).map((f) => ({
+          ...f,
+          content: f.content.substring(0, 500) + "\n\n[Content truncated - response too large for MCP protocol]",
+          truncated: true,
+          tokenCount: estimateTokens(f.content.substring(0, 500)),
+        })),
+        suggestions: [
+          `⚠️ Response was ${resultTokens} tokens, exceeding MCP limit of ${MCP_MAX_RESPONSE_TOKENS} tokens.`,
+          `Try reducing scope: specify fewer focus areas, use lower token budget, or analyze specific directories.`,
+          ...result.suggestions.slice(0, 3),
+        ],
+      };
+      resultJson = JSON.stringify(result, null, 2);
+      resultTokens = estimateTokens(resultJson);
+      optimizations.push(`Final emergency reduction: ${resultTokens} tokens`);
+    }
+
+    // Add optimization info to result
+    result.metadata.responseOptimized = true;
+    result.metadata.mcpOptimizations = optimizations;
+    result.suggestions.unshift(
+      `ℹ️ Response auto-optimized to fit MCP ${MCP_MAX_RESPONSE_TOKENS} token limit. Original would have been ${optimizations[0].split(": ")[1]}.`
+    );
   }
 
-  // Step 11: Build result
-  const result: ContextPackResult = {
+  // Final validation
+  const finalJson = JSON.stringify(result, null, 2);
+  const finalTokens = estimateTokens(finalJson);
+
+  if (finalTokens > MCP_MAX_RESPONSE_TOKENS) {
+    throw new Error(
+      `Response (${finalTokens} tokens) still exceeds MCP limit (${MCP_MAX_RESPONSE_TOKENS} tokens) after all optimizations. Please use smaller token budget or more specific focus areas.`
+    );
+  }
+
+  return {
+    content: [
+      {
+        type: "text",
+        text: finalJson,
+      },
+    ],
+  };
+}
+
+/**
+ * Build the result object
+ */
+function buildResult(
+  task: string,
+  taskAnalysis: TaskAnalysis,
+  optimizationStrategy: OptimizationStrategy,
+  maxTokens: number,
+  tokensUsed: number,
+  selectedFiles: ContextFile[],
+  architectureContext: any,
+  formattedOutput: string,
+  totalFilesAnalyzed: number
+): ContextPackResult {
+  return {
     task,
     taskAnalysis,
     strategy: optimizationStrategy,
@@ -157,25 +275,47 @@ export async function generateContextPack(
     conventions: extractConventions(architectureContext),
     patterns: extractPatterns(selectedFiles),
     suggestions: generateSuggestions(taskAnalysis, selectedFiles, architectureContext),
-    formattedOutput: optimizedFormattedOutput,
+    formattedOutput,
     metadata: {
-      totalFilesAnalyzed: files.length,
+      totalFilesAnalyzed,
       filesIncluded: selectedFiles.length,
       avgRelevanceScore:
         selectedFiles.reduce((sum, f) => sum + f.relevanceScore, 0) / selectedFiles.length || 0,
       generatedAt: new Date().toISOString(),
-      responseOptimized,
+      responseOptimized: false,
     },
   };
+}
 
-  return {
-    content: [
-      {
-        type: "text",
-        text: JSON.stringify(result, null, 2),
-      },
-    ],
-  };
+/**
+ * Truncate file contents to fit target token budget
+ */
+function truncateFilesContent(files: ContextFile[], targetTokens: number): ContextFile[] {
+  const totalTokens = files.reduce((sum, f) => sum + f.tokenCount, 0);
+
+  if (totalTokens <= targetTokens) {
+    return files;
+  }
+
+  const ratio = targetTokens / totalTokens;
+
+  return files.map((file) => {
+    const targetFileTokens = Math.floor(file.tokenCount * ratio);
+    const targetChars = targetFileTokens * 4;
+
+    if (file.content.length <= targetChars) {
+      return file;
+    }
+
+    const truncatedContent = truncateContent(file.content, targetFileTokens);
+
+    return {
+      ...file,
+      content: truncatedContent,
+      truncated: true,
+      tokenCount: estimateTokens(truncatedContent),
+    };
+  });
 }
 
 /**

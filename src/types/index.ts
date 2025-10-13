@@ -597,6 +597,7 @@ export interface ContextPackResult {
     avgRelevanceScore: number;
     generatedAt: string;
     responseOptimized?: boolean;
+    mcpOptimizations?: string[];
   };
 }
 
