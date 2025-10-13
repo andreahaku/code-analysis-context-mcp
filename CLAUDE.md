@@ -64,6 +64,8 @@ npm run format
    - Defines 6 tools as MCP endpoints with JSON schemas
    - Handles stdio transport for communication with MCP clients
    - Each tool maps to a handler function in `src/tools/`
+   - **Token-optimized schemas**: Tool names and parameters use shortened forms (e.g., `arch` instead of `code_analyze_architecture`, `path` instead of `projectPath`)
+   - **Parameter mapping layer** (`mapParams` function): Automatically translates short parameter names to long names expected by tool handlers, maintaining backward compatibility
 
 2. **AST Parser Service** (`src/services/ast-parser.ts`)
    - Multi-language parser supporting JS/TS/JSX/TSX and Vue SFC
@@ -186,21 +188,21 @@ The server communicates via stdio and returns JSON-formatted analysis results.
 - Recursively traverses the entire AST
 
 ### Per-File Metrics Feature
-- Enabled by default with `includeDetailedMetrics: true`
+- Enabled by default with `details: true`
 - Each file gets: `path`, `lines`, `complexity`, `exports`, `imports` count, `patterns` object
 - Results sorted by complexity descending for quick hotspot identification
 - Useful for refactoring prioritization and technical debt tracking
 
 ### Auto-Optimization for Large Projects
 - Activates automatically when project has >100 files and no filtering params specified
-- Applies smart defaults: `minComplexity: 10`, `maxDetailedFiles: 50`
+- Applies smart defaults: `minCx: 10`, `maxFiles: 50`
 - Reduces response size by 66-80% (15k → 3-5k tokens)
 - Adds notification to `recommendations` array explaining the optimization
-- User can override with explicit `minComplexity: 0` or `maxDetailedFiles: 999`
+- User can override with explicit `minCx: 0` or `maxFiles: 999`
 - Implementation: `src/tools/architecture-analyzer.ts:120-144`
 
 ### LLM Memory Integration
-- `code_analyze_architecture` can generate memory suggestions when `generateMemorySuggestions: true`
+- `arch` tool can generate memory suggestions when `memSuggest: true`
 - Suggests storing important insights, patterns, and configurations in LLM Memory MCP
 - Supports three scopes: `global` (cross-project), `local` (project-specific), `committed` (version-controlled)
 - Memory types: `insight` (architectural decisions), `pattern` (recurring patterns), `config` (conventions)
@@ -211,14 +213,14 @@ The server communicates via stdio and returns JSON-formatted analysis results.
 
 All 6 MCP tools are fully implemented and production-ready:
 
-1. **`code_analyze_architecture`** (`src/tools/architecture-analyzer.ts`)
+1. **`arch`** (`src/tools/architecture-analyzer.ts`)
    - Framework detection and analysis for React, React Native, Expo, Vue 3, Nuxt 3/4
    - Detailed per-file metrics with complexity analysis
    - Mermaid diagram generation for architecture visualization
    - Auto-optimization for large projects (>100 files)
    - LLM memory integration suggestions
 
-2. **`code_analyze_dependency_graph`** (`src/tools/dependency-mapper.ts`)
+2. **`deps`** (`src/tools/dependency-mapper.ts`)
    - Builds complete dependency graph using AST parsing
    - Detects circular dependencies with DFS algorithm
    - Calculates coupling, cohesion, and stability metrics
@@ -226,7 +228,7 @@ All 6 MCP tools are fully implemented and production-ready:
    - Generates Mermaid diagrams with styled nodes
    - Focus mode for analyzing specific modules
 
-3. **`code_analyze_patterns`** (`src/tools/pattern-detector.ts`)
+3. **`patterns`** (`src/tools/pattern-detector.ts`)
    - React patterns: Hooks, HOCs, Render Props, Compound Components, Context API
    - React Native/Expo patterns: Navigation, Platform-specific code, Native modules, Animations (Reanimated), Gestures, Permissions, Storage, Media APIs
    - Vue/Nuxt patterns: Composables, Pinia stores, Vue plugins, Directives, Nuxt modules/middleware
@@ -234,7 +236,7 @@ All 6 MCP tools are fully implemented and production-ready:
    - Custom pattern detection across the project
    - Best practice comparison and improvement suggestions
 
-4. **`code_analyze_coverage_gaps`** (`src/tools/coverage-analyzer.ts`)
+4. **`coverage`** (`src/tools/coverage-analyzer.ts`)
    - Parses LCOV and JSON coverage reports (Jest, Vitest, Playwright)
    - Identifies untested files with complexity-based prioritization
    - Generates framework-specific test scaffolds:
@@ -243,7 +245,7 @@ All 6 MCP tools are fully implemented and production-ready:
    - Includes test suggestions for components, hooks, composables, Pinia stores, and Nuxt server routes
    - Priority scoring based on complexity and criticality
 
-5. **`code_validate_conventions`** (`src/tools/convention-validator.ts`)
+5. **`conventions`** (`src/tools/convention-validator.ts`)
    - Auto-detects conventions from existing codebase (naming, imports, quotes)
    - Validates naming conventions (PascalCase, camelCase, kebab-case)
    - Framework-specific rules: React hooks, Vue composables, React Native screens/navigators
@@ -252,7 +254,7 @@ All 6 MCP tools are fully implemented and production-ready:
    - Auto-fix suggestions with safety indicators
    - Consistency scoring with strengths/weaknesses analysis
 
-6. **`code_generate_context_pack`** (`src/tools/context-pack-generator.ts`)
+6. **`context`** (`src/tools/context-pack-generator.ts`)
    - Token-optimized context generation for AI assistants
    - Task-based relevance scoring using TF-IDF
    - Framework-aware concept detection (React hooks, Vue composables, Nuxt auto-imports)
