@@ -23,7 +23,7 @@ import type {
 
 // MCP protocol limits
 const MCP_MAX_RESPONSE_TOKENS = 25000;
-const MCP_SAFE_RESPONSE_TOKENS = 20000; // Leave buffer for metadata
+const MCP_SAFE_RESPONSE_TOKENS = 18000; // Conservative buffer for gateway overhead + protocol envelope
 
 export async function generateContextPack(
   params: ContextPackParams

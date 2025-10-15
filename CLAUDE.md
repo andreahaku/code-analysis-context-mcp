@@ -262,6 +262,46 @@ All 6 MCP tools are fully implemented and production-ready:
    - Convention extraction from codebase
    - Multiple output formats (Markdown, JSON, XML)
    - Configurable token budgets and optimization strategies
+   - **MCP response size enforcement**: Automatically ensures responses stay under 25k token limit
+
+### MCP Response Size Limits (`context` tool)
+
+The `context` tool implements sophisticated automatic response optimization to comply with MCP's 25,000 token limit:
+
+**Two Token Concepts:**
+1. **Input Token Budget** (`tokens` parameter): Controls how much file content to include in analysis
+2. **MCP Response Limit** (25,000 tokens): Hard protocol limit for the JSON response size
+
+**Automatic Optimization Stages:**
+When a response would exceed 18,000 tokens (safe threshold with 28% buffer for MCP gateway overhead), the tool automatically applies progressive reductions:
+
+1. **Stage 1**: Remove formatted output (duplicates file contents) - saves ~30-50%
+2. **Stage 2**: Truncate file contents proportionally - targets 70% of safe limit for files
+3. **Stage 3**: Reduce number of files to most relevant 50% (minimum 5 files)
+4. **Stage 4**: Simplify architecture details - remove structure, keep overview
+5. **Stage 5**: Emergency reduction - return only top 3 files with 500 chars each
+
+**Transparency:**
+- All optimizations logged in `metadata.mcpOptimizations` array
+- User-facing notification added to `suggestions` array
+- `metadata.responseOptimized: true` flag set when auto-optimization occurs
+
+**Example Error (Before Fix):**
+```
+Error: MCP tool "context" response (35071 tokens) exceeds maximum allowed tokens (25000)
+Error: MCP tool "dispatch" response (26230 tokens) exceeds maximum allowed tokens (25000)
+```
+
+**After Fix:**
+Response automatically optimized to ~16-18k tokens with clear notification of what was reduced.
+
+**Recommended Usage:**
+- For large projects, use specific `focus` areas to narrow scope
+- Start with lower `tokens` budget (8000-12000) for initial exploration
+- Increase incrementally if more detail needed
+- Use multiple targeted calls instead of one large context dump
+
+**Implementation:** `src/tools/context-pack-generator.ts:24-223`
 
 ## Module System
 - Uses ES modules (`"type": "module"` in package.json)
