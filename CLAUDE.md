@@ -17,6 +17,12 @@ This is an **MCP (Model Context Protocol) server** that provides deep codebase a
 - React Native - React Navigation (Stack/Tab/Drawer), Platform-specific code, Native modules, Animations (Reanimated), Gesture handlers
 - Expo - Expo Router, Expo SDK, File-based routing, Platform features (Camera, Location, Notifications)
 
+**Backend Frameworks:**
+- Fastify - Routes, plugins, hooks, decorators, JSON Schema validation
+- PostgreSQL - Query patterns, parameterized queries, transactions
+- Kafka - Producers, consumers, topics, error handling
+- Alyxstream - Stream processing tasks, operators, windowing, Kafka integration
+
 **UI Libraries:**
 - Nuxt UI 4 - Component detection, theming patterns
 
@@ -82,12 +88,12 @@ npm run format
    - Auto-detects project type from `package.json` dependencies and file structure
    - Returns framework type with confidence score (0-1) and evidence array
    - Provides framework-specific default globs for file discovery
-   - **Detection priority**: Nuxt 3 → Vue 3 → Expo → React Native → React → Node
+   - **Detection priority**: Nuxt 3 → Vue 3 → Expo → React Native → Fastify → React → Node
    - Falls back to file structure analysis when `package.json` unavailable
 
 4. **Architecture Analyzer** (`src/tools/architecture-analyzer.ts`)
    - Main analysis tool that orchestrates framework detection, file parsing, and metrics
-   - Framework-specific analysis functions: `analyzeNuxt3()`, `analyzeVue3()`, `analyzeReactNative()`, `analyzeReact()`
+   - Framework-specific analysis functions: `analyzeNuxt3()`, `analyzeVue3()`, `analyzeReactNative()`, `analyzeReact()`, `analyzeFastify()`
    - Generates Mermaid diagrams for architecture and data flow
    - **Recent feature**: Detailed per-file metrics including complexity, line counts, imports/exports, and patterns
    - Files in `detailedMetrics` are sorted by complexity (highest first) for easy hotspot identification
@@ -162,6 +168,58 @@ Each framework has a dedicated analysis function that:
 - Recognizes permission requests (Permissions API, Expo Permissions)
 - Detects storage patterns (AsyncStorage, MMKV, SecureStore)
 - Identifies media APIs (Image picker, Camera, Video)
+
+**Fastify Backend specifics**:
+- Detects route definitions (fastify.get, fastify.post, etc.)
+- Identifies plugin registrations (fastify.register)
+- Recognizes lifecycle hooks (onRequest, preHandler, onResponse, etc.)
+- Detects JSON Schema validation in routes
+- Identifies PostgreSQL query patterns (.query() calls, parameterized queries)
+- Recognizes Kafka producers and consumers (producer.send, consumer.subscribe)
+- Detects Alyxstream tasks (Task(), operators, windowing functions)
+- Analyzes backend architecture layers (Routes, Services, Models, Plugins, Messaging, Configuration)
+- Identifies database integration patterns
+- Recognizes stream processing pipelines
+
+### Known Limitations of Backend Pattern Detection
+
+**PostgreSQL Query Detection**:
+- ✅ Detects `.query()` method calls
+- ✅ Identifies query type (SELECT, INSERT, UPDATE, etc.)
+- ✅ Recognizes parameterized queries ($1, $2, etc.)
+- ✅ Handles multi-line template literals
+- ❌ Transaction detection (BEGIN/COMMIT/ROLLBACK) not yet implemented
+- ❌ Dynamic query construction may not be fully captured
+- ❌ ORM queries (Prisma, TypeORM) not detected
+
+**Kafka Pattern Detection**:
+- ✅ Detects `producer.send()` and `consumer.subscribe()` calls
+- ✅ Extracts topic names from arguments
+- ❌ Error handling detection limited (try-catch requires parent node tracking)
+- ❌ Dynamic topic names from variables not extracted
+- ❌ Complex producer configurations may be partially detected
+
+**Alyxstream Detection**:
+- ✅ Detects `Task()` instantiation
+- ✅ Identifies chained operators (map, filter, keyBy, etc.)
+- ✅ Recognizes windowing functions
+- ✅ Detects source types (fromKafka, fromArray, fromStream)
+- ❌ Complex operator chains may not capture all methods
+- ❌ Custom operators not automatically recognized
+
+**Fastify Routes & Plugins**:
+- ✅ Detects standard route definitions (fastify.get, post, etc.)
+- ✅ Recognizes `fastify.route()` config objects
+- ✅ Identifies plugin registrations
+- ✅ Detects lifecycle hooks
+- ❌ Dynamic route registration may not be captured
+- ❌ Routes registered in separate files via require() may be missed
+
+**Recommendations**:
+- Use explicit, static patterns for better detection
+- Avoid dynamic string construction for queries and topics
+- Keep route definitions in dedicated route files
+- Use consistent naming conventions (e.g., `*Producer`, `*Consumer`)
 
 ## Testing the MCP Server
 

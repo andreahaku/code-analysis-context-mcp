@@ -227,6 +227,9 @@ async function analyzeByFramework(
     case "react":
       return analyzeReact(result, files, projectPath);
 
+    case "fastify":
+      return analyzeFastify(result, files, projectPath);
+
     default:
       return result;
   }
@@ -616,6 +619,191 @@ async function analyzeReact(
   ];
 
   return result;
+}
+
+/**
+ * Fastify specific analysis
+ */
+async function analyzeFastify(
+  result: ArchitectureAnalysisResult,
+  files: any[],
+  _projectPath: string
+): Promise<ArchitectureAnalysisResult> {
+  // Define Fastify backend layers
+  result.architecture.layers = [
+    {
+      name: "Routes",
+      description: "API endpoint definitions and route handlers",
+      directories: ["routes/", "src/routes/"],
+      dependencies: ["services/", "schemas/", "hooks/"],
+    },
+    {
+      name: "Services",
+      description: "Business logic and data processing",
+      directories: ["services/", "src/services/"],
+      dependencies: ["models/", "db/", "utils/"],
+    },
+    {
+      name: "Models",
+      description: "Data models and database schemas",
+      directories: ["models/", "src/models/", "db/", "src/db/"],
+      dependencies: ["database/"],
+    },
+    {
+      name: "Plugins",
+      description: "Fastify plugins and middleware",
+      directories: ["plugins/", "src/plugins/"],
+      dependencies: ["utils/", "config/"],
+    },
+    {
+      name: "Messaging",
+      description: "Kafka producers/consumers and stream processing",
+      directories: ["consumers/", "producers/", "streams/", "src/consumers/", "src/producers/", "src/streams/"],
+      dependencies: ["services/", "utils/"],
+    },
+    {
+      name: "Configuration",
+      description: "Application configuration and environment setup",
+      directories: ["config/", "src/config/"],
+      dependencies: [],
+    },
+  ];
+
+  // Identify entry points
+  result.architecture.entryPoints = files
+    .filter((f) =>
+      f.path.match(/(^|\/)(?:server|app|index)\.[jt]s$/)
+    )
+    .map((f) => f.path);
+
+  // Identify core modules
+  const coreModules = files
+    .filter((f) => f.exports.length > 0)
+    .sort((a, b) => b.complexity - a.complexity)
+    .slice(0, 10);
+
+  result.architecture.coreModules = coreModules.map((f) => ({
+    name: path.basename(f.path, path.extname(f.path)),
+    path: f.path,
+    purpose: inferPurpose(f.path),
+    exports: f.exports,
+    dependencies: f.imports.map((imp: any) => imp.source),
+  }));
+
+  // Count routes
+  const routeFiles = files.filter((f) =>
+    f.path.match(/routes\//i) ||
+    (f.patterns && f.patterns.fastifyRoutes) ||
+    f.exports.some((e: string) => e.includes("route") || e.includes("handler"))
+  );
+
+  result.components = {
+    total: routeFiles.length,
+    byType: {
+      routes: routeFiles.length,
+      plugins: files.filter((f) => f.path.match(/plugins\//i)).length,
+      services: files.filter((f) => f.path.match(/services\//i)).length,
+      models: files.filter((f) => f.path.match(/models\//i) || f.path.match(/db\//i)).length,
+      consumers: files.filter((f) => f.path.match(/consumers\//i)).length,
+      producers: files.filter((f) => f.path.match(/producers\//i)).length,
+      streams: files.filter((f) => f.path.match(/streams\//i)).length,
+    },
+  };
+
+  // Detect state management (database)
+  const dbFiles = files.filter((f) =>
+    f.path.match(/db\//i) ||
+    f.path.match(/database\//i) ||
+    f.path.match(/models\//i) ||
+    (f.patterns && f.patterns.hasPostgres)
+  );
+
+  result.stateManagement = {
+    pattern: "mixed",
+    flow: "Request → Routes → Services → Database → Response",
+    stores: dbFiles.map((f) => ({
+      name: path.basename(f.path, path.extname(f.path)),
+      path: f.path,
+      state: [],
+      getters: [],
+      actions: f.exports,
+    })),
+  };
+
+  // Detect server routes
+  result.serverRoutes = {
+    total: routeFiles.length,
+    routes: routeFiles.map((f) => ({
+      path: f.path,
+      method: "GET", // Default, would need deeper AST analysis
+      file: f.path,
+      handler: f.exports[0] || "handler",
+    })),
+  };
+
+  // Data flow
+  result.dataFlow = {
+    description: `
+**Fastify Backend Architecture**
+
+1. **Request Flow**: Client → Fastify Server → Routes → Services → Database
+2. **Plugins**: Middleware and cross-cutting concerns registered with Fastify
+3. **Database**: PostgreSQL queries and transactions
+4. **Messaging**: Kafka producers/consumers for async communication
+5. **Stream Processing**: Alyxstream tasks for real-time data processing
+
+**Key Patterns:**
+- Route handlers define API endpoints
+- Services contain business logic
+- Database layer handles data persistence
+- Kafka integration for event-driven architecture
+- Alyxstream for stream processing pipelines
+    `.trim(),
+  };
+
+  // Recommendations
+  result.recommendations = [
+    routeFiles.length === 0
+      ? "No route files detected. Consider organizing API endpoints in a routes/ directory"
+      : `Found ${routeFiles.length} route files. Good API organization!`,
+    files.filter((f) => f.path.match(/plugins\//i)).length > 0
+      ? `Using ${files.filter((f) => f.path.match(/plugins\//i)).length} Fastify plugins for modularity`
+      : "Consider using Fastify plugins to organize middleware and cross-cutting concerns",
+    dbFiles.length > 0
+      ? `Database layer detected with ${dbFiles.length} files`
+      : "No database layer detected. Consider adding models/ or db/ directory",
+    files.some((f) => f.patterns && f.patterns.hasKafka)
+      ? "Kafka integration detected for event-driven architecture"
+      : "Consider Kafka for async communication and event streaming",
+    files.some((f) => f.patterns && f.patterns.hasAlyxstream)
+      ? "Alyxstream detected for stream processing"
+      : "Consider Alyxstream for real-time stream processing pipelines",
+    "Use JSON Schema validation in route definitions for request/response validation",
+    "Implement proper error handling with Fastify's error handler plugin",
+    "Consider using Fastify hooks for authentication, logging, and request lifecycle management",
+  ];
+
+  return result;
+}
+
+/**
+ * Infer purpose of a module based on its path
+ */
+function inferPurpose(filePath: string): string {
+  if (filePath.match(/routes\//i)) return "API endpoint handler";
+  if (filePath.match(/services\//i)) return "Business logic service";
+  if (filePath.match(/models\//i)) return "Data model";
+  if (filePath.match(/plugins\//i)) return "Fastify plugin";
+  if (filePath.match(/hooks\//i)) return "Request lifecycle hook";
+  if (filePath.match(/schemas\//i)) return "JSON Schema validation";
+  if (filePath.match(/consumers\//i)) return "Kafka consumer";
+  if (filePath.match(/producers\//i)) return "Kafka producer";
+  if (filePath.match(/streams\//i)) return "Stream processing pipeline";
+  if (filePath.match(/db\//i) || filePath.match(/database\//i)) return "Database connection/query";
+  if (filePath.match(/config\//i)) return "Application configuration";
+  if (filePath.match(/utils\//i)) return "Utility functions";
+  if (filePath.match(/middleware\//i)) return "Middleware";
+  return "Core module";
 }
 
 /**

@@ -119,6 +119,32 @@ export class FrameworkDetector {
       };
     }
 
+    // Check for Fastify
+    if (deps.fastify) {
+      evidence.push("fastify dependency found");
+
+      // Check for typical Fastify project structure
+      const hasRoutesDir = await this.directoryExists(projectPath, "routes") ||
+                          await this.directoryExists(projectPath, "src/routes");
+      const hasPluginsDir = await this.directoryExists(projectPath, "plugins") ||
+                           await this.directoryExists(projectPath, "src/plugins");
+      const hasServerFile = await this.fileExists(projectPath, "server.js") ||
+                           await this.fileExists(projectPath, "app.js") ||
+                           await this.fileExists(projectPath, "src/server.ts") ||
+                           await this.fileExists(projectPath, "src/app.ts");
+
+      if (hasRoutesDir) evidence.push("routes directory found");
+      if (hasPluginsDir) evidence.push("plugins directory found");
+      if (hasServerFile) evidence.push("server entry file found");
+
+      return {
+        framework: "fastify",
+        version: deps.fastify.replace(/[\^~]/, ""),
+        confidence: (hasRoutesDir || hasPluginsDir || hasServerFile) ? 0.95 : 0.85,
+        evidence,
+      };
+    }
+
     // Check for React
     if (deps.react) {
       evidence.push("react dependency found");
@@ -326,6 +352,86 @@ export class FrameworkDetector {
           "src/**/*.jsx",
           "components/**/*.tsx",
           "hooks/**/*.ts",
+        ];
+
+      case "fastify":
+        return [
+          // Main source patterns
+          "src/**/*.ts",
+          "src/**/*.js",
+          // Fastify-specific patterns
+          "routes/**/*.ts",
+          "routes/**/*.js",
+          "src/routes/**/*.ts",
+          "src/routes/**/*.js",
+          "plugins/**/*.ts",
+          "plugins/**/*.js",
+          "src/plugins/**/*.ts",
+          "src/plugins/**/*.js",
+          "hooks/**/*.ts",
+          "hooks/**/*.js",
+          "src/hooks/**/*.ts",
+          "src/hooks/**/*.js",
+          "schemas/**/*.ts",
+          "schemas/**/*.js",
+          "src/schemas/**/*.ts",
+          "src/schemas/**/*.js",
+          // Services, models, database
+          "services/**/*.ts",
+          "services/**/*.js",
+          "src/services/**/*.ts",
+          "src/services/**/*.js",
+          "models/**/*.ts",
+          "models/**/*.js",
+          "src/models/**/*.ts",
+          "src/models/**/*.js",
+          "db/**/*.ts",
+          "db/**/*.js",
+          "src/db/**/*.ts",
+          "src/db/**/*.js",
+          "database/**/*.ts",
+          "database/**/*.js",
+          "src/database/**/*.ts",
+          "src/database/**/*.js",
+          // Messaging/streaming
+          "consumers/**/*.ts",
+          "consumers/**/*.js",
+          "src/consumers/**/*.ts",
+          "src/consumers/**/*.js",
+          "producers/**/*.ts",
+          "producers/**/*.js",
+          "src/producers/**/*.ts",
+          "src/producers/**/*.js",
+          "streams/**/*.ts",
+          "streams/**/*.js",
+          "src/streams/**/*.ts",
+          "src/streams/**/*.js",
+          // Config, utils, middleware
+          "config/**/*.ts",
+          "config/**/*.js",
+          "src/config/**/*.ts",
+          "src/config/**/*.js",
+          "utils/**/*.ts",
+          "utils/**/*.js",
+          "src/utils/**/*.ts",
+          "src/utils/**/*.js",
+          "middleware/**/*.ts",
+          "middleware/**/*.js",
+          "src/middleware/**/*.ts",
+          "src/middleware/**/*.js",
+          // Entry points
+          "server.ts",
+          "server.js",
+          "app.ts",
+          "app.js",
+          "index.ts",
+          "index.js",
+          "src/server.ts",
+          "src/server.js",
+          "src/app.ts",
+          "src/app.js",
+          "src/index.ts",
+          "src/index.js",
         ];
 
       default:

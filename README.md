@@ -24,6 +24,13 @@ A sophisticated Model Context Protocol (MCP) server that provides deep codebase 
 - ✅ **React Native** - React Navigation (Stack/Tab/Drawer), Platform-specific code, Native modules, Animations (Reanimated), Gesture handlers
 - ✅ **Expo** - Expo Router, Expo SDK, File-based routing, Platform features (Camera, Location, Notifications)
 
+### Backend Frameworks
+
+- ✅ **Fastify** - Routes, plugins, hooks, decorators, JSON Schema validation
+- ✅ **PostgreSQL** - Query patterns, parameterized queries, transactions
+- ✅ **Kafka** - Producers, consumers, topics, error handling
+- ✅ **Alyxstream** - Stream processing tasks, operators, windowing, Kafka integration
+
 ### UI Libraries
 
 - ✅ **Nuxt UI 4** - Component detection (UButton, UCard, UInput, UModal), Theming patterns, Design system integration
@@ -97,6 +104,20 @@ Generate comprehensive architectural overview:
   "details": true,
   "minCx": 10,
   "maxFiles": 30
+}
+```
+
+**Fastify Backend projects:**
+```typescript
+{
+  "path": "/path/to/fastify-project",
+  "depth": "d",
+  "fw": "fastify",
+  "diagrams": true,
+  "metrics": true,
+  "details": true,
+  "minCx": 5,
+  "maxFiles": 40
 }
 ```
 

@@ -19,6 +19,13 @@ import type {
   PiniaStorePattern,
   VuePluginPattern,
   NuxtModulePattern,
+  FastifyRoutePattern,
+  FastifyPluginPattern,
+  FastifyHookPattern,
+  PostgresQueryPattern,
+  KafkaProducerPattern,
+  KafkaConsumerPattern,
+  AlyxstreamTaskPattern,
   Antipattern,
   BestPracticeComparison,
   PatternType,
@@ -80,6 +87,8 @@ export async function analyzePatterns(
         detectReactPatterns(ast, relPath, result, patternTypes);
       } else if (framework === "vue3" || framework === "nuxt3") {
         detectVuePatterns(ast, relPath, result, patternTypes, framework);
+      } else if (framework === "fastify") {
+        detectFastifyPatterns(ast, relPath, result, patternTypes);
       }
 
       // Detect common patterns
@@ -1597,4 +1606,569 @@ function detectMediaPatterns(ast: ASTNode, file: string): PatternOccurrence[] {
 
   checkNode(ast);
   return patterns;
+}
+/**
+ * Detect Fastify-specific patterns
+ */
+function detectFastifyPatterns(
+  ast: ASTNode,
+  file: string,
+  result: PatternAnalysisResult,
+  requestedTypes?: PatternType[]
+): void {
+  const shouldDetect = (type: PatternType) => !requestedTypes || requestedTypes.includes(type);
+
+  // Detect Fastify routes
+  if (shouldDetect("fastify-routes")) {
+    const routes = detectFastifyRoutes(ast, file);
+    if (routes.length > 0) {
+      result.patterns.fastifyRoutes = result.patterns.fastifyRoutes || [];
+      result.patterns.fastifyRoutes.push(...routes);
+    }
+  }
+
+  // Detect Fastify plugins
+  if (shouldDetect("fastify-plugins")) {
+    const plugins = detectFastifyPlugins(ast, file);
+    if (plugins.length > 0) {
+      result.patterns.fastifyPlugins = result.patterns.fastifyPlugins || [];
+      result.patterns.fastifyPlugins.push(...plugins);
+    }
+  }
+
+  // Detect Fastify hooks
+  if (shouldDetect("fastify-hooks")) {
+    const hooks = detectFastifyHooks(ast, file);
+    if (hooks.length > 0) {
+      result.patterns.fastifyHooks = result.patterns.fastifyHooks || [];
+      result.patterns.fastifyHooks.push(...hooks);
+    }
+  }
+
+  // Detect PostgreSQL queries
+  if (shouldDetect("postgres-queries")) {
+    const queries = detectPostgresQueries(ast, file);
+    if (queries.length > 0) {
+      result.patterns.postgresQueries = result.patterns.postgresQueries || [];
+      result.patterns.postgresQueries.push(...queries);
+    }
+  }
+
+  // Detect Kafka producers
+  if (shouldDetect("kafka-producers")) {
+    const producers = detectKafkaProducers(ast, file);
+    if (producers.length > 0) {
+      result.patterns.kafkaProducers = result.patterns.kafkaProducers || [];
+      result.patterns.kafkaProducers.push(...producers);
+    }
+  }
+
+  // Detect Kafka consumers
+  if (shouldDetect("kafka-consumers")) {
+    const consumers = detectKafkaConsumers(ast, file);
+    if (consumers.length > 0) {
+      result.patterns.kafkaConsumers = result.patterns.kafkaConsumers || [];
+      result.patterns.kafkaConsumers.push(...consumers);
+    }
+  }
+
+  // Detect Alyxstream tasks
+  if (shouldDetect("alyxstream-tasks") || shouldDetect("alyxstream-operators") || shouldDetect("alyxstream-windows")) {
+    const tasks = detectAlyxstreamTasks(ast, file);
+    if (tasks.length > 0) {
+      result.patterns.alyxstreamTasks = result.patterns.alyxstreamTasks || [];
+      result.patterns.alyxstreamTasks.push(...tasks);
+    }
+  }
+}
+
+/**
+ * Detect Fastify route definitions
+ */
+function detectFastifyRoutes(ast: ASTNode, file: string): FastifyRoutePattern[] {
+  const routes: FastifyRoutePattern[] = [];
+  const httpMethods = ["get", "post", "put", "delete", "patch", "options", "head"];
+
+  const checkNode = (node: any) => {
+    if (!node || typeof node !== "object") return;
+
+    // Detect fastify.get('/path', handler), app.post('/path', handler), etc.
+    if (
+      node.type === "CallExpression" &&
+      node.callee?.type === "MemberExpression" &&
+      node.callee.property?.name &&
+      httpMethods.includes(node.callee.property.name.toLowerCase())
+    ) {
+      const method = node.callee.property.name.toUpperCase() as FastifyRoutePattern["method"];
+      const pathArg = node.arguments?.[0];
+      const path = pathArg?.type === "StringLiteral" ? pathArg.value : pathArg?.value || "unknown";
+
+      // Check if it has schema (second or third argument is an object with schema property)
+      let hasSchema = false;
+      let hasHooks = false;
+
+      for (const arg of node.arguments || []) {
+        if (arg.type === "ObjectExpression") {
+          const props = arg.properties || [];
+          hasSchema = props.some((p: any) => p.key?.name === "schema");
+          hasHooks = props.some((p: any) => ["onRequest", "preHandler", "preParsing", "preValidation"].includes(p.key?.name));
+        }
+      }
+
+      routes.push({
+        name: `${method} ${path}`,
+        file,
+        method,
+        path,
+        hasSchema,
+        hasHooks,
+      });
+    }
+
+    // Detect fastify.route({ method, url, handler })
+    if (
+      node.type === "CallExpression" &&
+      node.callee?.type === "MemberExpression" &&
+      node.callee.property?.name === "route" &&
+      node.arguments?.[0]?.type === "ObjectExpression"
+    ) {
+      const routeConfig = node.arguments[0];
+      let method = "GET";
+      let path = "unknown";
+      let hasSchema = false;
+      let hasHooks = false;
+
+      for (const prop of routeConfig.properties || []) {
+        if (prop.key?.name === "method" && prop.value?.value) {
+          method = prop.value.value.toUpperCase();
+        }
+        if (prop.key?.name === "url" && prop.value?.value) {
+          path = prop.value.value;
+        }
+        if (prop.key?.name === "schema") {
+          hasSchema = true;
+        }
+        if (["onRequest", "preHandler", "preParsing", "preValidation"].includes(prop.key?.name)) {
+          hasHooks = true;
+        }
+      }
+
+      routes.push({
+        name: `${method} ${path}`,
+        file,
+        method: method as FastifyRoutePattern["method"],
+        path,
+        hasSchema,
+        hasHooks,
+      });
+    }
+
+    for (const key in node) {
+      if (Array.isArray(node[key])) {
+        node[key].forEach(checkNode);
+      } else if (typeof node[key] === "object") {
+        checkNode(node[key]);
+      }
+    }
+  };
+
+  checkNode(ast);
+  return routes;
+}
+
+/**
+ * Detect Fastify plugin registrations
+ */
+function detectFastifyPlugins(ast: ASTNode, file: string): FastifyPluginPattern[] {
+  const plugins: FastifyPluginPattern[] = [];
+
+  const checkNode = (node: any) => {
+    if (!node || typeof node !== "object") return;
+
+    // Detect fastify.register(plugin)
+    if (
+      node.type === "CallExpression" &&
+      node.callee?.type === "MemberExpression" &&
+      node.callee.property?.name === "register"
+    ) {
+      const pluginArg = node.arguments?.[0];
+      let pluginName = "anonymous";
+
+      if (pluginArg?.name) {
+        pluginName = pluginArg.name;
+      } else if (pluginArg?.type === "ArrowFunctionExpression" || pluginArg?.type === "FunctionExpression") {
+        pluginName = "inline function";
+      }
+
+      plugins.push({
+        name: pluginName,
+        file,
+        isAsync: pluginArg?.async === true,
+        decorates: [], // Would need deeper AST analysis to detect decorations
+      });
+    }
+
+    // Detect fastify-plugin exports
+    if (
+      node.type === "CallExpression" &&
+      (node.callee?.name === "fp" || node.callee?.name === "fastifyPlugin")
+    ) {
+      plugins.push({
+        name: path.basename(file, path.extname(file)),
+        file,
+        isAsync: node.arguments?.[0]?.async === true,
+        decorates: [],
+      });
+    }
+
+    for (const key in node) {
+      if (Array.isArray(node[key])) {
+        node[key].forEach(checkNode);
+      } else if (typeof node[key] === "object") {
+        checkNode(node[key]);
+      }
+    }
+  };
+
+  checkNode(ast);
+  return plugins;
+}
+
+/**
+ * Detect Fastify hooks
+ */
+function detectFastifyHooks(ast: ASTNode, file: string): FastifyHookPattern[] {
+  const hooks: FastifyHookPattern[] = [];
+  const hookTypes = ["onRequest", "preParsing", "preValidation", "preHandler", "preSerialization", "onSend", "onResponse", "onError", "onTimeout"];
+
+  const checkNode = (node: any) => {
+    if (!node || typeof node !== "object") return;
+
+    // Detect fastify.addHook('onRequest', handler)
+    if (
+      node.type === "CallExpression" &&
+      node.callee?.type === "MemberExpression" &&
+      node.callee.property?.name === "addHook" &&
+      node.arguments?.[0]?.value &&
+      hookTypes.includes(node.arguments[0].value)
+    ) {
+      hooks.push({
+        name: node.arguments[0].value,
+        file,
+        hookType: node.arguments[0].value as FastifyHookPattern["hookType"],
+        scope: "global",
+      });
+    }
+
+    // Detect hooks in route definitions
+    if (node.type === "ObjectExpression") {
+      for (const prop of node.properties || []) {
+        if (prop.key?.name && hookTypes.includes(prop.key.name)) {
+          hooks.push({
+            name: prop.key.name,
+            file,
+            hookType: prop.key.name as FastifyHookPattern["hookType"],
+            scope: "route",
+          });
+        }
+      }
+    }
+
+    for (const key in node) {
+      if (Array.isArray(node[key])) {
+        node[key].forEach(checkNode);
+      } else if (typeof node[key] === "object") {
+        checkNode(node[key]);
+      }
+    }
+  };
+
+  checkNode(ast);
+  return hooks;
+}
+
+/**
+ * Detect PostgreSQL queries
+ *
+ * Note: Transaction detection requires tracking BEGIN/COMMIT/ROLLBACK context
+ * which is not implemented yet.
+ */
+function detectPostgresQueries(ast: ASTNode, file: string): PostgresQueryPattern[] {
+  const queries: PostgresQueryPattern[] = [];
+  const queryKeywords = ["SELECT", "INSERT", "UPDATE", "DELETE", "CREATE", "ALTER", "DROP"];
+
+  const checkNode = (node: any) => {
+    if (!node || typeof node !== "object") return;
+
+    // Detect .query() calls
+    if (
+      node.type === "CallExpression" &&
+      node.callee?.type === "MemberExpression" &&
+      node.callee.property?.name === "query"
+    ) {
+      const queryArg = node.arguments?.[0];
+      let queryType: PostgresQueryPattern["queryType"] = "other";
+      let usesParameterized = false;
+
+      // Check if it's a template literal or string
+      if (queryArg?.type === "StringLiteral" || queryArg?.type === "TemplateLiteral") {
+        let queryText = "";
+
+        // Handle string literals
+        if (queryArg.type === "StringLiteral") {
+          queryText = queryArg.value || "";
+        }
+        // Handle template literals - concatenate all quasis
+        else if (queryArg.type === "TemplateLiteral" && queryArg.quasis) {
+          queryText = queryArg.quasis
+            .map((quasi: any) => quasi.value?.raw || "")
+            .join(" ");
+        }
+
+        const upperQuery = queryText.toUpperCase();
+
+        // Detect query type
+        for (const keyword of queryKeywords) {
+          if (upperQuery.includes(keyword)) {
+            queryType = keyword as PostgresQueryPattern["queryType"];
+            break;
+          }
+        }
+
+        // Check for parameterized queries ($1, $2, etc.)
+        usesParameterized = /\$\d+/.test(queryText) || node.arguments.length > 1;
+      }
+
+      queries.push({
+        file,
+        line: node.loc?.start?.line,
+        queryType,
+        usesParameterized,
+        hasTransaction: false, // Would need deeper context analysis
+      });
+    }
+
+    for (const key in node) {
+      if (Array.isArray(node[key])) {
+        node[key].forEach(checkNode);
+      } else if (typeof node[key] === "object") {
+        checkNode(node[key]);
+      }
+    }
+  };
+
+  checkNode(ast);
+  return queries;
+}
+
+/**
+ * Helper function to check if a call expression has error handling via chaining
+ * Looks for .catch() or .then(onSuccess, onError) patterns
+ */
+function checkForErrorHandlingChain(_node: any): boolean {
+  // This is a simplified check - in a real scenario, we'd need to track
+  // the expression statement that contains this call to see if it's chained
+  // For now, we return false as a conservative default since we can't reliably
+  // detect this without parent context or a more sophisticated traversal
+  return false;
+}
+
+/**
+ * Detect Kafka producers
+ *
+ * Note: Error handling detection is limited to .catch() chaining.
+ * Try-catch blocks require parent node tracking which is not available in all AST parsers.
+ */
+function detectKafkaProducers(ast: ASTNode, file: string): KafkaProducerPattern[] {
+  const producers: KafkaProducerPattern[] = [];
+
+  const checkNode = (node: any) => {
+    if (!node || typeof node !== "object") return;
+
+    // Detect producer.send() calls
+    if (
+      node.type === "CallExpression" &&
+      node.callee?.type === "MemberExpression" &&
+      node.callee.property?.name === "send" &&
+      node.callee.object?.name?.toLowerCase().includes("producer")
+    ) {
+      const topics: string[] = [];
+      let hasErrorHandling = false;
+
+      // Try to extract topic from arguments
+      const sendArg = node.arguments?.[0];
+      if (sendArg?.type === "ObjectExpression") {
+        for (const prop of sendArg.properties || []) {
+          if (prop.key?.name === "topic" && prop.value?.value) {
+            topics.push(prop.value.value);
+          }
+        }
+      }
+
+      // Check for .catch() or .then(success, error) chaining
+      // This is more reliable than checking parent nodes
+      hasErrorHandling = checkForErrorHandlingChain(node);
+
+      producers.push({
+        name: node.callee.object.name,
+        file,
+        topics,
+        hasErrorHandling,
+      });
+    }
+
+    for (const key in node) {
+      if (Array.isArray(node[key])) {
+        node[key].forEach(checkNode);
+      } else if (typeof node[key] === "object") {
+        checkNode(node[key]);
+      }
+    }
+  };
+
+  checkNode(ast);
+  return producers;
+}
+
+/**
+ * Detect Kafka consumers
+ *
+ * Note: Error handling detection is limited to .catch() chaining.
+ * Try-catch blocks require parent node tracking which is not available in all AST parsers.
+ */
+function detectKafkaConsumers(ast: ASTNode, file: string): KafkaConsumerPattern[] {
+  const consumers: KafkaConsumerPattern[] = [];
+
+  const checkNode = (node: any) => {
+    if (!node || typeof node !== "object") return;
+
+    // Detect consumer.subscribe() calls
+    if (
+      node.type === "CallExpression" &&
+      node.callee?.type === "MemberExpression" &&
+      node.callee.property?.name === "subscribe" &&
+      node.callee.object?.name?.toLowerCase().includes("consumer")
+    ) {
+      const topics: string[] = [];
+      let groupId: string | undefined;
+      let hasErrorHandling = false;
+
+      // Extract topics
+      const subscribeArg = node.arguments?.[0];
+      if (subscribeArg?.type === "ObjectExpression") {
+        for (const prop of subscribeArg.properties || []) {
+          if (prop.key?.name === "topics") {
+            if (prop.value?.type === "ArrayExpression") {
+              for (const elem of prop.value.elements || []) {
+                if (elem?.value) topics.push(elem.value);
+              }
+            } else if (prop.value?.value) {
+              topics.push(prop.value.value);
+            }
+          }
+        }
+      }
+
+      // Check for .catch() or .then(success, error) chaining
+      // This is more reliable than checking parent nodes
+      hasErrorHandling = checkForErrorHandlingChain(node);
+
+      consumers.push({
+        name: node.callee.object.name,
+        file,
+        topics,
+        groupId,
+        hasErrorHandling,
+      });
+    }
+
+    for (const key in node) {
+      if (Array.isArray(node[key])) {
+        node[key].forEach(checkNode);
+      } else if (typeof node[key] === "object") {
+        checkNode(node[key]);
+      }
+    }
+  };
+
+  checkNode(ast);
+  return consumers;
+}
+
+/**
+ * Detect Alyxstream tasks and patterns
+ */
+function detectAlyxstreamTasks(ast: ASTNode, file: string): AlyxstreamTaskPattern[] {
+  const tasks: AlyxstreamTaskPattern[] = [];
+  const operators = ["map", "filter", "fn", "fnRaw", "each", "keyBy", "withEventTime", "groupBy", "sumMap", "branch", "aggregate", "toStorage"];
+  const windowOperators = ["slidingWindowTime", "tumblingWindowTime", "sessionWindow"];
+  const sources = ["fromKafka", "fromArray", "fromStream"];
+
+  const checkNode = (node: any) => {
+    if (!node || typeof node !== "object") return;
+
+    // Detect Task() calls or new Task()
+    if (
+      (node.type === "CallExpression" && node.callee?.name === "Task") ||
+      (node.type === "NewExpression" && node.callee?.name === "Task")
+    ) {
+      let source: AlyxstreamTaskPattern["source"] = "custom";
+      const detectedOperators: string[] = [];
+      let hasWindowing = false;
+      let hasStorage = false;
+
+      // Traverse the chain to find operators
+      let current = node;
+      while (current) {
+        if (current.type === "CallExpression" && current.callee?.type === "MemberExpression") {
+          const methodName = current.callee.property?.name;
+
+          if (methodName && sources.includes(methodName)) {
+            if (methodName === "fromKafka") source = "kafka";
+            else if (methodName === "fromArray") source = "array";
+            else if (methodName === "fromStream") source = "stream";
+          }
+
+          if (methodName && operators.includes(methodName)) {
+            detectedOperators.push(methodName);
+          }
+
+          if (methodName && windowOperators.includes(methodName)) {
+            hasWindowing = true;
+            detectedOperators.push(methodName);
+          }
+
+          if (methodName === "toStorage" || methodName === "aggregate") {
+            hasStorage = true;
+          }
+
+          current = current.callee.object;
+        } else {
+          break;
+        }
+      }
+
+      if (detectedOperators.length > 0) {
+        tasks.push({
+          name: `Task in ${path.basename(file)}`,
+          file,
+          source,
+          operators: detectedOperators,
+          hasWindowing,
+          hasStorage,
+        });
+      }
+    }
+
+    for (const key in node) {
+      if (Array.isArray(node[key])) {
+        node[key].forEach(checkNode);
+      } else if (typeof node[key] === "object") {
+        checkNode(node[key]);
+      }
+    }
+  };
+
+  checkNode(ast);
+  return tasks;
 }

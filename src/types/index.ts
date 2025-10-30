@@ -3,7 +3,7 @@
  */
 
 // Framework types
-export type FrameworkType = "react" | "react-native" | "expo" | "vue3" | "nuxt3" | "node";
+export type FrameworkType = "react" | "react-native" | "expo" | "vue3" | "nuxt3" | "fastify" | "node";
 export type StructureType = "monolithic" | "modular" | "feature-based" | "layers";
 export type AnalysisDepth = "overview" | "detailed" | "deep";
 
@@ -52,7 +52,25 @@ export type PatternType =
   | "rn-storage"
   | "rn-gestures"
   | "rn-media"
-  | "rn-deep-linking";
+  | "rn-deep-linking"
+  // Backend Fastify patterns
+  | "fastify-routes"
+  | "fastify-plugins"
+  | "fastify-hooks"
+  | "fastify-decorators"
+  | "fastify-schemas"
+  // Database patterns
+  | "postgres-queries"
+  | "postgres-migrations"
+  | "postgres-connection"
+  // Messaging patterns
+  | "kafka-producers"
+  | "kafka-consumers"
+  | "kafka-topics"
+  // Stream processing patterns (Alyxstream)
+  | "alyxstream-tasks"
+  | "alyxstream-operators"
+  | "alyxstream-windows";
 
 // State management patterns
 export type StateManagementPattern = "context" | "redux" | "zustand" | "mobx" | "pinia" | "vuex" | "mixed";
@@ -388,6 +406,65 @@ export interface NuxtModulePattern {
   hooks?: string[];
 }
 
+// Backend Fastify patterns
+export interface FastifyRoutePattern {
+  name: string;
+  file: string;
+  method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "OPTIONS" | "HEAD";
+  path: string;
+  hasSchema?: boolean;
+  hasHooks?: boolean;
+}
+
+export interface FastifyPluginPattern {
+  name: string;
+  file: string;
+  isAsync: boolean;
+  decorates?: string[];
+}
+
+export interface FastifyHookPattern {
+  name: string;
+  file: string;
+  hookType: "onRequest" | "preParsing" | "preValidation" | "preHandler" | "preSerialization" | "onSend" | "onResponse" | "onError" | "onTimeout";
+  scope?: "global" | "route";
+}
+
+// Database patterns
+export interface PostgresQueryPattern {
+  file: string;
+  line?: number;
+  queryType: "SELECT" | "INSERT" | "UPDATE" | "DELETE" | "CREATE" | "ALTER" | "DROP" | "other";
+  usesParameterized: boolean;
+  hasTransaction?: boolean;
+}
+
+// Messaging patterns
+export interface KafkaProducerPattern {
+  name: string;
+  file: string;
+  topics: string[];
+  hasErrorHandling: boolean;
+}
+
+export interface KafkaConsumerPattern {
+  name: string;
+  file: string;
+  topics: string[];
+  groupId?: string;
+  hasErrorHandling: boolean;
+}
+
+// Stream processing patterns (Alyxstream)
+export interface AlyxstreamTaskPattern {
+  name: string;
+  file: string;
+  source: "kafka" | "array" | "stream" | "custom";
+  operators: string[];
+  hasWindowing: boolean;
+  hasStorage: boolean;
+}
+
 export interface Antipattern {
   type: string;
   file: string;
@@ -435,6 +512,17 @@ export interface PatternAnalysisResult {
     rnStorage?: PatternOccurrence[];
     rnGestures?: PatternOccurrence[];
     rnMedia?: PatternOccurrence[];
+    // Backend Fastify patterns
+    fastifyRoutes?: FastifyRoutePattern[];
+    fastifyPlugins?: FastifyPluginPattern[];
+    fastifyHooks?: FastifyHookPattern[];
+    // Database patterns
+    postgresQueries?: PostgresQueryPattern[];
+    // Messaging patterns
+    kafkaProducers?: KafkaProducerPattern[];
+    kafkaConsumers?: KafkaConsumerPattern[];
+    // Stream processing patterns
+    alyxstreamTasks?: AlyxstreamTaskPattern[];
   };
   customPatterns?: {
     name: string;
