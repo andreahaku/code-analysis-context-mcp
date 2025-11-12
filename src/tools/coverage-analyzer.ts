@@ -236,11 +236,168 @@ export async function analyzeCoverageGaps(
     result = Pagination.addPaginationMetadata(result, paginatedGaps.pagination);
   }
 
+  // MCP response size enforcement - progressive optimization
+  const MCP_SAFE_RESPONSE_TOKENS = 18000; // Safe threshold with buffer for gateway overhead
+  const MCP_MAX_RESPONSE_TOKENS = 25000; // Hard MCP protocol limit
+
+  let resultJson = JSON.stringify(result, null, 2);
+  let resultTokens = Pagination.estimateTokens(resultJson);
+  const mcpOptimizations: string[] = [];
+  let responseOptimized = false;
+
+  if (resultTokens > MCP_SAFE_RESPONSE_TOKENS) {
+    responseOptimized = true;
+    mcpOptimizations.push(`Initial response: ${resultTokens} tokens (exceeds ${MCP_SAFE_RESPONSE_TOKENS} safe limit)`);
+
+    // Stage 1: Truncate test scaffolds to 300 chars
+    if (resultTokens > MCP_SAFE_RESPONSE_TOKENS) {
+      for (const gap of result.gaps) {
+        for (const suggestion of gap.testSuggestions) {
+          if (suggestion.scaffold && suggestion.scaffold.length > 300) {
+            const truncatedLength = suggestion.scaffold.length - 300;
+            suggestion.scaffold =
+              suggestion.scaffold.substring(0, 300) +
+              `\n\n// ... [${truncatedLength} chars truncated for MCP size limits]`;
+          }
+        }
+      }
+      resultJson = JSON.stringify(result, null, 2);
+      resultTokens = Pagination.estimateTokens(resultJson);
+      mcpOptimizations.push(`After truncating scaffolds to 300 chars: ${resultTokens} tokens`);
+    }
+
+    // Stage 2: Truncate critical gaps scaffolds
+    if (resultTokens > MCP_SAFE_RESPONSE_TOKENS) {
+      for (const gap of result.criticalGaps) {
+        for (const suggestion of gap.testSuggestions) {
+          if (suggestion.scaffold && suggestion.scaffold.length > 300) {
+            const truncatedLength = suggestion.scaffold.length - 300;
+            suggestion.scaffold =
+              suggestion.scaffold.substring(0, 300) +
+              `\n\n// ... [${truncatedLength} chars truncated]`;
+          }
+        }
+      }
+      resultJson = JSON.stringify(result, null, 2);
+      resultTokens = Pagination.estimateTokens(resultJson);
+      mcpOptimizations.push(`After truncating critical gaps scaffolds: ${resultTokens} tokens`);
+    }
+
+    // Stage 3: Remove scaffolds entirely, keep only descriptions
+    if (resultTokens > MCP_SAFE_RESPONSE_TOKENS) {
+      for (const gap of result.gaps) {
+        for (const suggestion of gap.testSuggestions) {
+          if (suggestion.scaffold) {
+            suggestion.scaffold = `[Scaffold removed to fit MCP limits. Description: ${suggestion.description}]`;
+          }
+        }
+      }
+      for (const gap of result.criticalGaps) {
+        for (const suggestion of gap.testSuggestions) {
+          if (suggestion.scaffold) {
+            suggestion.scaffold = `[Scaffold removed to fit MCP limits. Description: ${suggestion.description}]`;
+          }
+        }
+      }
+      resultJson = JSON.stringify(result, null, 2);
+      resultTokens = Pagination.estimateTokens(resultJson);
+      mcpOptimizations.push(`After removing all scaffolds: ${resultTokens} tokens`);
+    }
+
+    // Stage 4: Reduce critical gaps to top 10
+    if (resultTokens > MCP_SAFE_RESPONSE_TOKENS && result.criticalGaps.length > 10) {
+      const originalCount = result.criticalGaps.length;
+      result.criticalGaps = result.criticalGaps.slice(0, 10);
+      resultJson = JSON.stringify(result, null, 2);
+      resultTokens = Pagination.estimateTokens(resultJson);
+      mcpOptimizations.push(`After reducing critical gaps from ${originalCount} to 10: ${resultTokens} tokens`);
+    }
+
+    // Stage 5: Simplify existing test patterns
+    if (resultTokens > MCP_SAFE_RESPONSE_TOKENS && result.existingTestPatterns) {
+      result.existingTestPatterns = {
+        framework: result.existingTestPatterns.framework,
+        patterns: {
+          importStatements: result.existingTestPatterns.patterns.importStatements.slice(0, 5),
+          setupPatterns: result.existingTestPatterns.patterns.setupPatterns,
+          assertionLibrary: result.existingTestPatterns.patterns.assertionLibrary,
+          mockingLibrary: result.existingTestPatterns.patterns.mockingLibrary,
+          renderFunction: result.existingTestPatterns.patterns.renderFunction,
+          commonHelpers: [],
+        },
+        exampleFiles: result.existingTestPatterns.exampleFiles.slice(0, 3),
+      };
+      resultJson = JSON.stringify(result, null, 2);
+      resultTokens = Pagination.estimateTokens(resultJson);
+      mcpOptimizations.push(`After simplifying test patterns: ${resultTokens} tokens`);
+    }
+
+    // Stage 6: Reduce gaps to top 20
+    if (resultTokens > MCP_SAFE_RESPONSE_TOKENS && result.gaps.length > 20) {
+      const originalCount = result.gaps.length;
+      result.gaps = result.gaps.slice(0, 20);
+      resultJson = JSON.stringify(result, null, 2);
+      resultTokens = Pagination.estimateTokens(resultJson);
+      mcpOptimizations.push(`After reducing gaps from ${originalCount} to 20: ${resultTokens} tokens`);
+    }
+
+    // Stage 7: Remove test suggestions metadata
+    if (resultTokens > MCP_SAFE_RESPONSE_TOKENS) {
+      for (const gap of result.gaps) {
+        gap.testSuggestions = [];
+      }
+      for (const gap of result.criticalGaps) {
+        gap.testSuggestions = [];
+      }
+      resultJson = JSON.stringify(result, null, 2);
+      resultTokens = Pagination.estimateTokens(resultJson);
+      mcpOptimizations.push(`After removing all test suggestions: ${resultTokens} tokens`);
+    }
+
+    // Stage 8: Emergency - reduce to top 5 gaps only
+    if (resultTokens > MCP_MAX_RESPONSE_TOKENS) {
+      mcpOptimizations.push(`⚠️ EMERGENCY REDUCTION: Response still ${resultTokens} tokens`);
+      result.gaps = result.gaps.slice(0, 5);
+      result.criticalGaps = result.criticalGaps.slice(0, 5);
+      result.existingTestPatterns = undefined;
+      result.recommendations = [
+        `⚠️ Response was ${resultTokens} tokens, exceeding MCP limit.`,
+        `Showing only top 5 gaps. Use 'page' and 'pageSize' parameters to paginate through all results.`,
+        ...result.recommendations.slice(0, 2),
+      ];
+      resultJson = JSON.stringify(result, null, 2);
+      resultTokens = Pagination.estimateTokens(resultJson);
+      mcpOptimizations.push(`Final emergency reduction: ${resultTokens} tokens`);
+    }
+
+    // Add optimization metadata
+    result.metadata = {
+      ...result.metadata,
+      responseOptimized,
+      mcpOptimizations,
+    };
+
+    // Add user notification
+    result.recommendations.unshift(
+      `ℹ️ Response auto-optimized to fit MCP ${MCP_MAX_RESPONSE_TOKENS} token limit (was ${mcpOptimizations[0].split(": ")[1]}). Use pagination for full details.`
+    );
+  }
+
+  // Final validation
+  const finalJson = JSON.stringify(result, null, 2);
+  const finalTokens = Pagination.estimateTokens(finalJson);
+
+  if (finalTokens > MCP_MAX_RESPONSE_TOKENS) {
+    throw new Error(
+      `Coverage analysis response (${finalTokens} tokens) exceeds MCP limit (${MCP_MAX_RESPONSE_TOKENS} tokens). Please use 'page' and 'pageSize' parameters to paginate results.`
+    );
+  }
+
   return {
     content: [
       {
         type: "text",
-        text: JSON.stringify(result, null, 2),
+        text: finalJson,
       },
     ],
   };

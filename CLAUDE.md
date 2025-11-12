@@ -302,6 +302,7 @@ All 6 MCP tools are fully implemented and production-ready:
      - Vue/Nuxt: Vitest + @vue/test-utils + mockNuxtImport + Pinia testing
    - Includes test suggestions for components, hooks, composables, Pinia stores, and Nuxt server routes
    - Priority scoring based on complexity and criticality
+   - **MCP response size enforcement**: Automatically ensures responses stay under 25k token limit with progressive optimization
 
 5. **`conventions`** (`src/tools/convention-validator.ts`)
    - Auto-detects conventions from existing codebase (naming, imports, quotes)
@@ -360,6 +361,43 @@ Response automatically optimized to ~16-18k tokens with clear notification of wh
 - Use multiple targeted calls instead of one large context dump
 
 **Implementation:** `src/tools/context-pack-generator.ts:24-223`
+
+### MCP Response Size Limits (`coverage` tool)
+
+The `coverage` tool implements progressive response optimization similar to the `context` tool to comply with MCP's 25,000 token limit:
+
+**Automatic Optimization Stages:**
+When a response would exceed 18,000 tokens (safe threshold with buffer for MCP gateway overhead), the tool automatically applies progressive reductions:
+
+1. **Stage 1**: Truncate test scaffolds to 300 chars - reduces large code templates
+2. **Stage 2**: Truncate critical gaps scaffolds - optimizes high-priority items
+3. **Stage 3**: Remove all scaffolds (keep descriptions only) - saves ~40-60%
+4. **Stage 4**: Reduce critical gaps to top 10 - focuses on most important items
+5. **Stage 5**: Simplify existing test patterns - removes verbose examples
+6. **Stage 6**: Reduce gaps to top 20 - limits overall gap list
+7. **Stage 7**: Remove all test suggestions - keeps only gap analysis
+8. **Stage 8**: Emergency reduction - return only top 5 gaps with minimal data
+
+**Transparency:**
+- All optimizations logged in `metadata.mcpOptimizations` array
+- User-facing notification added to `recommendations` array
+- `metadata.responseOptimized: true` flag set when auto-optimization occurs
+
+**Example Error (Before Fix):**
+```
+Error: MCP tool "dispatch" response (31259 tokens) exceeds maximum allowed tokens (25000)
+```
+
+**After Fix:**
+Response automatically optimized to ~16-18k tokens with clear notification of what was reduced.
+
+**Recommended Usage:**
+- Use `page` and `pageSize` parameters for explicit pagination control
+- Use `priority: "critical"` or `priority: "high"` to filter results upfront
+- Set `suggestTests: false` to skip test scaffold generation for faster responses
+- Use `cx: false` to skip complexity analysis if not needed
+
+**Implementation:** `src/tools/coverage-analyzer.ts:239-404`
 
 ## Module System
 - Uses ES modules (`"type": "module"` in package.json)

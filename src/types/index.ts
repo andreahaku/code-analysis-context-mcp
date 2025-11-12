@@ -824,6 +824,8 @@ export interface CoverageAnalysisResult {
     analyzedAt: string;
     gapsAboveThreshold: number;
     autoOptimized?: boolean;
+    responseOptimized?: boolean;
+    mcpOptimizations?: string[];
   };
 }
 
