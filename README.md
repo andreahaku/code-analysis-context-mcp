@@ -1792,6 +1792,31 @@ security({ path: "/project", cats: ["dependencies"] });
 // - npm overrides for forced upgrades
 ```
 
+**How it compares to Dependabot:**
+
+The approach is conceptually similar but uses a different (though overlapping) data source:
+
+- **Dependabot** uses GitHub's Advisory Database directly, integrated into the GitHub platform
+- **This implementation** uses the **OSV (Open Source Vulnerabilities)** database via the public OSV.dev API
+
+OSV aggregates multiple vulnerability databases including:
+- GitHub Security Advisories (GHSA)
+- National Vulnerability Database (NVD)
+- npm Registry Advisories
+- Python PyPA advisories
+- And other ecosystem-specific sources
+
+The core approach is the same:
+1. Parse `package.json` and `package-lock.json` to get exact dependency versions
+2. Query the vulnerability database with package name + version
+3. Return matches with CVE/GHSA IDs, severity, and remediation info
+
+**Why OSV?**
+- Provides a free, public API with no authentication required
+- Aggregates multiple sources (including the same data Dependabot uses)
+- Supports batch queries for efficiency
+- Maintained by Google and the open source community
+
 **Example Output:**
 
 ```json
