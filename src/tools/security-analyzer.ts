@@ -36,7 +36,10 @@ import { detectVueNuxtVulnerabilities } from "../security/vue-nuxt-detector.js";
 import { detectFastifyVulnerabilities } from "../security/fastify-detector.js";
 import { detectReactVulnerabilities } from "../security/react-detector.js";
 import { detectPositivePatterns } from "../security/positive-detector.js";
-import { detectDependencyVulnerabilities, type DependencyScanResult } from "../security/dependency-detector.js";
+import {
+  detectDependencyVulnerabilities,
+  type DependencyScanResult,
+} from "../security/dependency-detector/index.js";
 
 // MCP Response size limit (25k tokens ≈ 100k chars, use 18k safe threshold)
 const MCP_SAFE_TOKEN_LIMIT = 18000;
@@ -119,9 +122,9 @@ export async function analyzeSecurityVulnerabilities(
         dependencyScanResult = await detectDependencyVulnerabilities(projectPath, effectiveFramework);
         allVulnerabilities.push(...dependencyScanResult.vulnerabilities);
         allPositivePatterns.push(...dependencyScanResult.positivePatterns);
-      } catch (error) {
-        // Dependency scan failed, continue with other detectors
-        console.error("Dependency scan failed:", error);
+      } catch {
+        // Dependency scan failed silently - continue with other detectors
+        // This can happen if OSV API is unavailable or network issues occur
       }
     }
 

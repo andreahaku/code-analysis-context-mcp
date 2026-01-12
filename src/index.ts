@@ -197,7 +197,17 @@ const TOOLS: Tool[] = [
           type: "array",
           items: {
             type: "string",
-            enum: ["injection", "crypto", "access_control", "misconfiguration", "mobile", "vue_nuxt", "fastify_backend", "data_exposure", "dependencies"],
+            enum: [
+              "injection",
+              "crypto",
+              "access_control",
+              "misconfiguration",
+              "mobile",
+              "vue_nuxt",
+              "fastify_backend",
+              "data_exposure",
+              "dependencies",
+            ],
           },
           description: "Filter by category",
         },
