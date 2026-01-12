@@ -269,7 +269,7 @@ The server communicates via stdio and returns JSON-formatted analysis results.
 
 ### Implemented Tools
 
-All 6 MCP tools are fully implemented and production-ready:
+All 7 MCP tools are fully implemented and production-ready:
 
 1. **`arch`** (`src/tools/architecture-analyzer.ts`)
    - Framework detection and analysis for React, React Native, Expo, Vue 3, Nuxt 3/4
@@ -322,6 +322,23 @@ All 6 MCP tools are fully implemented and production-ready:
    - Multiple output formats (Markdown, JSON, XML)
    - Configurable token budgets and optimization strategies
    - **MCP response size enforcement**: Automatically ensures responses stay under 25k token limit
+
+7. **`security`** (`src/tools/security-analyzer.ts`)
+   - Comprehensive security vulnerability analysis with OWASP Top 10 2021 mapping
+   - Framework-specific detectors:
+     - **injection-detector**: SQL injection, XSS, command injection, NoSQL injection
+     - **crypto-detector**: Hardcoded secrets, weak crypto, insecure token storage
+     - **access-control-detector**: CORS misconfig, missing auth, exposed credentials
+     - **misconfiguration-detector**: Debug mode, console logging, verbose errors
+     - **react-detector**: dangerouslySetInnerHTML, URL injection, open redirects, CSRF, Next.js server leaks
+     - **mobile-detector**: React Native/Expo secure storage, clipboard, deep links
+     - **vue-nuxt-detector**: v-html XSS, Nitro route validation, runtime config
+     - **fastify-detector**: Route validation, rate limiting, auth hooks, DB creds
+     - **positive-detector**: Input validation, parameterized queries, error boundaries
+   - Severity levels: critical, high, medium, low, info
+   - Security score (0-100) and risk level assessment
+   - Prioritized recommendations with effort/impact ratings
+   - **MCP response size enforcement**: Progressive optimization for large results
 
 ### MCP Response Size Limits (`context` tool)
 

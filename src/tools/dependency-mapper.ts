@@ -318,7 +318,7 @@ function resolveImportPath(fromFile: string, importPath: string, projectPath: st
   }
 
   const fromDir = path.dirname(fromFile);
-  let resolved = path.resolve(fromDir, importPath);
+  const resolved = path.resolve(fromDir, importPath);
 
   // Try different extensions
   const extensions = [".ts", ".tsx", ".js", ".jsx", ".vue"];

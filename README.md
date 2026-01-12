@@ -10,6 +10,7 @@ A sophisticated Model Context Protocol (MCP) server that provides deep codebase 
 - **🧪 Coverage Analysis**: Find untested code with actionable test suggestions based on complexity
 - **✅ Convention Validation**: Validate adherence to project-specific naming and coding conventions
 - **🤖 Context Generation**: Build optimal AI context packs respecting token limits and maximizing relevance
+- **🔒 Security Analysis**: Detect vulnerabilities with OWASP mapping, framework-aware checks, and positive pattern recognition
 
 ## Supported Frameworks & Platforms
 
@@ -1629,6 +1630,335 @@ Build optimal AI context packs for LLM tools (Claude Code, Codex, Cursor) by int
    - Shows GraphQL query patterns
    - Includes type definitions
 
+#### 7. `security`
+
+Perform comprehensive security vulnerability analysis with OWASP Top 10 mapping, framework-aware detection, and positive security pattern recognition:
+
+```typescript
+{
+  "path": "/path/to/project",
+  "inc": ["src/**/*.{ts,tsx,js,jsx,vue}"],
+  "exc": ["**/node_modules/**", "**/*.test.*"],
+  "sev": ["critical", "high"],      // Filter by severity
+  "cats": ["injection", "crypto"],  // Filter by category
+  "fw": "expo",                     // Override framework detection
+  "pos": true,                      // Include positive patterns (default: true)
+  "report": false,                  // Generate markdown report
+  "page": 1,                        // Pagination
+  "pageSize": 50                    // Results per page
+}
+```
+
+**Core Features:**
+
+- **OWASP Top 10 2021 Mapping**: Each vulnerability mapped to specific OWASP category
+- **Severity Levels**: Critical, High, Medium, Low, Info
+- **Framework-Aware Detection**: Specialized checks for React, React Native/Expo, Vue/Nuxt, Fastify
+- **Positive Pattern Recognition**: Identifies good security practices already in place
+- **Security Score**: 0-100 score based on vulnerability findings
+- **Actionable Recommendations**: Prioritized remediation guidance
+
+**Vulnerability Categories:**
+
+| Category | OWASP | Description |
+|----------|-------|-------------|
+| `injection` | A03:2021 | SQL, XSS, Command, NoSQL, Template injection |
+| `crypto` | A02:2021 | Hardcoded secrets, weak crypto, insecure storage |
+| `access_control` | A01:2021 | CORS misconfiguration, missing auth, IDOR, open redirects |
+| `misconfiguration` | A05:2021 | Debug mode, verbose errors, insecure cookies |
+| `data_exposure` | A02:2021 | Sensitive data in state/props, server secrets leaked |
+| `mobile` | Mobile-Specific | Insecure storage, missing cert pinning, deep links |
+| `react` | Framework-Specific | dangerouslySetInnerHTML, URL injection, CSRF, Next.js leaks |
+| `vue_nuxt` | Framework-Specific | v-html XSS, exposed runtime config, SSR issues |
+| `fastify_backend` | Framework-Specific | Missing validation, rate limiting, auth hooks |
+
+**Detection Examples:**
+
+**Injection Vulnerabilities (A03):**
+```typescript
+// SQL Injection - detected
+db.query(`SELECT * FROM users WHERE id = ${userId}`);
+
+// Safe - parameterized query recognized as positive pattern
+db.query('SELECT * FROM users WHERE id = $1', [userId]);
+```
+
+**Cryptographic Failures (A02):**
+```typescript
+// Hardcoded secrets - detected
+const API_KEY = 'sk-1234567890abcdef';
+const JWT_SECRET = 'mysecretkey';
+
+// Weak crypto - detected
+const hash = crypto.createHash('md5').update(password).digest('hex');
+const id = Math.random().toString(36);
+```
+
+**Access Control Issues (A01):**
+```typescript
+// CORS wildcard - detected
+app.use(cors({ origin: '*' }));
+
+// Insecure cookies - detected
+res.cookie('session', token, { httpOnly: false, secure: false });
+```
+
+**Mobile-Specific (React Native/Expo):**
+```typescript
+// Insecure token storage - detected
+await AsyncStorage.setItem('authToken', token);
+
+// Safe - positive pattern recognized
+await SecureStore.setItemAsync('authToken', token);
+```
+
+**React Web Specific:**
+```typescript
+// XSS via dangerouslySetInnerHTML - detected
+<div dangerouslySetInnerHTML={{ __html: userContent }} />
+
+// Safe - sanitized content recognized as positive pattern
+<div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(userContent) }} />
+
+// Open redirect vulnerability - detected
+const returnUrl = searchParams.get('redirect');
+window.location.href = returnUrl;  // Unvalidated redirect
+
+// URL injection in href - detected
+<a href={userProvidedUrl}>Click here</a>  // Could be javascript:
+
+// Sensitive data in React state - detected
+const [password, setPassword] = useState('');  // Visible in DevTools
+
+// Next.js server secrets leaked to client - detected
+export async function getServerSideProps() {
+  return { props: { apiKey: process.env.SECRET_KEY } };  // Sent to browser!
+}
+```
+
+**Vue/Nuxt Specific:**
+```typescript
+// XSS vulnerability - detected
+<div v-html="userContent"></div>
+
+// Exposed secrets - detected
+export default defineNuxtConfig({
+  runtimeConfig: {
+    public: {
+      apiKey: 'secret-key'  // Should be in private
+    }
+  }
+});
+```
+
+**Fastify Backend Specific:**
+```typescript
+// Route without validation - detected
+fastify.post('/api/users', async (req) => {
+  return db.insert(req.body);  // No schema validation
+});
+
+// Safe - validation recognized
+fastify.post('/api/users', {
+  schema: { body: UserSchema }
+}, handler);
+```
+
+**Example Output:**
+
+```json
+{
+  "projectPath": "/path/to/project",
+  "framework": "expo",
+  "analyzedAt": "2025-01-12T15:30:00.000Z",
+  "severitySummary": {
+    "critical": 2,
+    "high": 5,
+    "medium": 8,
+    "low": 3,
+    "info": 1,
+    "total": 19
+  },
+  "categorySummary": {
+    "injection": 4,
+    "crypto": 6,
+    "access_control": 3,
+    "misconfiguration": 2,
+    "mobile": 4,
+    "vue_nuxt": 0,
+    "fastify_backend": 0,
+    "data_exposure": 0
+  },
+  "statusSummary": {
+    "needs_fix": 12,
+    "review": 5,
+    "acceptable": 2
+  },
+  "vulnerabilities": [
+    {
+      "id": "CRYPTO-001",
+      "category": "crypto",
+      "owasp": "A02:2021-Cryptographic Failures",
+      "severity": "critical",
+      "status": "needs_fix",
+      "title": "Hardcoded API Key",
+      "description": "API key found in source code: OPENAI_API_KEY",
+      "location": {
+        "file": "src/services/api.ts",
+        "line": 15,
+        "codeSnippet": "const OPENAI_API_KEY = 'sk-..."
+      },
+      "risk": "API key exposed in source code can be extracted and abused",
+      "remediation": "Move to environment variable: process.env.OPENAI_API_KEY",
+      "cweId": "CWE-798",
+      "confidence": 0.95,
+      "autoFixable": false,
+      "references": ["https://owasp.org/Top10/A02_2021-Cryptographic_Failures/"]
+    },
+    {
+      "id": "MOBILE-001",
+      "category": "mobile",
+      "owasp": "Mobile-Specific",
+      "severity": "high",
+      "status": "needs_fix",
+      "title": "Insecure Token Storage",
+      "description": "Auth token stored in AsyncStorage which is not encrypted",
+      "location": {
+        "file": "src/utils/auth.ts",
+        "line": 42
+      },
+      "risk": "Tokens in AsyncStorage can be extracted from device backups",
+      "remediation": "Use expo-secure-store or react-native-keychain for sensitive data",
+      "cweId": "CWE-312",
+      "confidence": 0.9,
+      "framework": "expo",
+      "autoFixable": false
+    }
+  ],
+  "positivePatterns": [
+    {
+      "id": "POS-001",
+      "category": "injection",
+      "title": "Input Validation Library",
+      "description": "Uses Zod for runtime input validation",
+      "location": { "file": "src/schemas/user.ts" },
+      "benefit": "Prevents injection attacks through validated input"
+    },
+    {
+      "id": "POS-002",
+      "category": "crypto",
+      "title": "Secure Password Hashing",
+      "description": "Uses bcrypt for password hashing",
+      "location": { "file": "src/services/auth.ts" },
+      "benefit": "Protects passwords with industry-standard hashing"
+    },
+    {
+      "id": "POS-003",
+      "category": "mobile",
+      "title": "Secure Token Storage",
+      "description": "Uses expo-secure-store for sensitive data",
+      "location": { "file": "src/utils/secure-storage.ts" },
+      "benefit": "Encrypts sensitive data in device keychain"
+    }
+  ],
+  "metrics": {
+    "filesAnalyzed": 85,
+    "securityScore": 72,
+    "riskLevel": "moderate",
+    "analysisTime": 1250
+  },
+  "recommendations": [
+    {
+      "priority": 1,
+      "title": "Remove Hardcoded Secrets",
+      "description": "Found 2 critical hardcoded secrets. Move to environment variables immediately.",
+      "category": "crypto",
+      "affectedFiles": ["src/services/api.ts", "src/config/keys.ts"]
+    },
+    {
+      "priority": 2,
+      "title": "Migrate to Secure Storage",
+      "description": "Found 3 instances of AsyncStorage for sensitive data. Use SecureStore instead.",
+      "category": "mobile",
+      "affectedFiles": ["src/utils/auth.ts", "src/hooks/useAuth.ts"]
+    },
+    {
+      "priority": 3,
+      "title": "Add Input Validation",
+      "description": "5 routes lack input validation. Add schema validation to prevent injection.",
+      "category": "injection",
+      "affectedFiles": ["src/api/users.ts", "src/api/orders.ts"]
+    }
+  ],
+  "metadata": {
+    "page": 1,
+    "pageSize": 50,
+    "totalVulnerabilities": 19,
+    "hasMore": false
+  }
+}
+```
+
+**Security Score Calculation:**
+
+```
+Score = 100 - (critical × 15) - (high × 8) - (medium × 3) - (low × 1)
+Score = max(0, min(100, Score))
+
+Risk Levels:
+- 90-100: Low risk (excellent security posture)
+- 70-89: Moderate risk (some improvements needed)
+- 50-69: High risk (significant vulnerabilities)
+- 0-49: Critical risk (immediate action required)
+```
+
+**Use Cases:**
+
+1. **Pre-Deployment Security Audit**:
+   ```typescript
+   security({ path: "/app", sev: ["critical", "high"] });
+   // Focus on blocking issues before release
+   ```
+
+2. **Mobile App Security Review**:
+   ```typescript
+   security({ path: "/mobile-app", fw: "expo", cats: ["mobile", "crypto"] });
+   // Focus on mobile-specific and credential issues
+   ```
+
+3. **API Security Assessment**:
+   ```typescript
+   security({ path: "/api", cats: ["injection", "access_control"] });
+   // Focus on backend security concerns
+   ```
+
+4. **Security Posture Overview**:
+   ```typescript
+   security({ path: "/project", pos: true });
+   // Get full picture including positive patterns
+   ```
+
+5. **CI/CD Integration**:
+   ```typescript
+   security({ path: ".", sev: ["critical"] });
+   // Fail pipeline on critical vulnerabilities
+   ```
+
+**Positive Patterns Detected:**
+
+The tool also recognizes good security practices:
+
+| Pattern | Library/Practice | Benefit |
+|---------|-----------------|---------|
+| Input Validation | Zod, Yup, Joi | Prevents injection attacks |
+| Parameterized Queries | pg, mysql2, Prisma | Prevents SQL injection |
+| Password Hashing | bcrypt, argon2 | Secure credential storage |
+| Security Headers | Helmet | Protects against common attacks |
+| Rate Limiting | express-rate-limit | Prevents abuse |
+| Secure Storage | SecureStore, Keychain | Encrypted credential storage |
+| HTTPS Enforcement | redirect middleware | Encrypted transport |
+| CORS Configuration | Specific origins | Controlled cross-origin access |
+
 ## Example: Detailed Metrics Output
 
 When you use `includeDetailedMetrics: true` in the architecture analysis, you'll receive per-file metrics like this:
@@ -2045,7 +2375,74 @@ context({
 - ✨ Animations involved - test performance on low-end devices
 - 📱 Screen component work - consider navigation params, focus effects, and back handling
 
-### 11. Store Analysis in LLM Memory for Persistent Context
+### 11. Security Vulnerability Assessment
+
+Ask Claude Code: _"Scan my mobile app for security vulnerabilities before release"_
+
+```typescript
+security({
+  path: "/path/to/mobile-app",
+  fw: "expo",
+  sev: ["critical", "high", "medium"],
+  pos: true
+});
+```
+
+**What you'll discover:**
+
+1. **Critical Issues**:
+   - Hardcoded API keys and secrets in source code
+   - Authentication tokens stored in AsyncStorage (unencrypted)
+   - Debug mode enabled in production builds
+
+2. **High Severity**:
+   - Missing certificate pinning for API calls
+   - XSS vulnerabilities in webviews
+   - CORS misconfiguration allowing any origin
+
+3. **Medium Severity**:
+   - Console logging sensitive data
+   - Deep link URL validation issues
+   - Clipboard security concerns
+
+4. **Positive Patterns Found**:
+   - SecureStore used for some credentials ✅
+   - Input validation with Zod ✅
+   - bcrypt for password hashing ✅
+
+**Priority Workflow:**
+
+```typescript
+// Step 1: Get critical issues only
+security({ sev: ["critical"] });
+// Fix these before any release
+
+// Step 2: Address high severity
+security({ sev: ["high"] });
+// Should be fixed before production
+
+// Step 3: Review medium severity
+security({ sev: ["medium"], cats: ["mobile"] });
+// Mobile-specific concerns
+
+// Step 4: Full security posture
+security({ pos: true });
+// Understand your security strengths too
+```
+
+**CI/CD Integration:**
+
+```bash
+# Fail pipeline on critical vulnerabilities
+# In your CI script:
+security_result=$(call_security_tool --sev critical)
+if [[ $critical_count > 0 ]]; then
+  echo "Critical vulnerabilities found - blocking release"
+  exit 1
+fi
+```
+
+### 12. Store Analysis in LLM Memory for Persistent Context
 
 Ask Claude Code: _"Analyze my project and store key insights in memory for future sessions"_
 
@@ -2156,12 +2553,23 @@ Create a `.code-analysis.json` file in your project root:
 - [x] Best practice comparison
 - [x] Custom pattern identification
 
-### Phase 3-4: Advanced Features 🚧
+### Phase 3-4: Advanced Features ✅
 
 - [x] Full dependency graph analysis with circular detection
 - [x] Context pack optimization with intelligent file ranking
 - [x] Coverage analysis with test scaffolding
-- [ ] Convention validation with auto-fix
+- [x] Convention validation with auto-fix
+
+### Phase 5: Security Analysis ✅
+
+- [x] OWASP Top 10 2021 vulnerability mapping
+- [x] Injection detection (SQL, XSS, Command, NoSQL, Template)
+- [x] Cryptographic failure detection (hardcoded secrets, weak crypto)
+- [x] Access control analysis (CORS, auth, IDOR)
+- [x] Security misconfiguration detection
+- [x] Framework-specific checks (React Native/Expo, Vue/Nuxt, Fastify)
+- [x] Positive security pattern recognition
+- [x] Security scoring and prioritized recommendations
 
 ## Architecture
 

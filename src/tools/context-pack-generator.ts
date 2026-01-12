@@ -516,7 +516,7 @@ function analyzeTask(task: string): TaskAnalysis {
 
   // Extract mentioned files/paths
   const mentionedFiles: string[] = [];
-  const filePattern = /(?:src\/|components\/|pages\/|app\/|lib\/)[\w\/-]+\.[\w]+/g;
+  const filePattern = /(?:src\/|components\/|pages\/|app\/|lib\/)[\w/-]+\.[\w]+/g;
   const matches = task.match(filePattern);
   if (matches) {
     mentionedFiles.push(...matches);

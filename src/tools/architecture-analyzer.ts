@@ -433,10 +433,12 @@ async function analyzeReactNative(
     (f) => f.imports?.some((imp: any) => imp.source === "mobx" || imp.source === "mobx-react")
   );
 
-  if (hasRedux) statePattern = "redux";
+  // Check for mixed state management first
+  const stateCount = [hasRedux, hasZustand, hasMobx].filter(Boolean).length;
+  if (stateCount > 1) statePattern = "mixed";
+  else if (hasRedux) statePattern = "redux";
   else if (hasZustand) statePattern = "zustand";
   else if (hasMobx) statePattern = "mobx";
-  else if (hasRedux && (hasZustand || hasMobx)) statePattern = "mixed";
 
   result.stateManagement.pattern = statePattern;
 

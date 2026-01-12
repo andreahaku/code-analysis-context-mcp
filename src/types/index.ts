@@ -1156,3 +1156,236 @@ export interface ReactNativeArchitectureExtension {
     maps?: string[]; // react-native-maps
   };
 }
+
+// ====================== Security Analysis Types ======================
+
+/**
+ * OWASP Top 10 2021 Categories
+ */
+export type OWASPCategory =
+  | "A01:2021-Broken Access Control"
+  | "A02:2021-Cryptographic Failures"
+  | "A03:2021-Injection"
+  | "A04:2021-Insecure Design"
+  | "A05:2021-Security Misconfiguration"
+  | "A06:2021-Vulnerable Components"
+  | "A07:2021-Auth Failures"
+  | "A08:2021-Data Integrity Failures"
+  | "A09:2021-Logging Failures"
+  | "A09:2021-Security Logging and Monitoring Failures"
+  | "A10:2021-SSRF"
+  | "Mobile-Specific"
+  | "Framework-Specific";
+
+/**
+ * Severity levels for security findings
+ */
+export type SecuritySeverity = "critical" | "high" | "medium" | "low" | "info";
+
+/**
+ * Status of a security finding
+ */
+export type SecurityStatus = "needs_fix" | "review" | "acceptable" | "false_positive";
+
+/**
+ * Security finding category
+ */
+export type SecurityCategory =
+  | "injection"
+  | "crypto"
+  | "cryptographic_failures"
+  | "access_control"
+  | "misconfiguration"
+  | "security_misconfiguration"
+  | "input_validation"
+  | "mobile"
+  | "vue_nuxt"
+  | "fastify_backend"
+  | "data_exposure";
+
+/**
+ * Individual security vulnerability finding
+ */
+export interface SecurityVulnerability {
+  id: string;
+  category: SecurityCategory;
+  owasp: OWASPCategory;
+  severity: SecuritySeverity;
+  status: SecurityStatus;
+  title: string;
+  description: string;
+  location: {
+    file: string;
+    line: number;
+    column?: number;
+    endLine?: number;
+    endColumn?: number;
+    codeSnippet?: string;
+  };
+  risk: string;
+  remediation: string;
+  cweId?: string;
+  confidence: number; // 0-1
+  framework?: FrameworkType;
+  autoFixable: boolean;
+  autoFixSuggestion?: string;
+  references?: string[];
+}
+
+/**
+ * Positive security practice detected
+ */
+export interface PositiveSecurityPractice {
+  id: string;
+  category: string;
+  title: string;
+  description: string;
+  location: {
+    file: string;
+    line?: number;
+  };
+  benefit: string;
+  framework?: FrameworkType;
+}
+
+/**
+ * Summary counts by severity
+ */
+export interface SecuritySeveritySummary {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  info: number;
+  total: number;
+}
+
+/**
+ * Summary counts by category
+ */
+export interface SecurityCategorySummary {
+  injection: number;
+  crypto: number;
+  access_control: number;
+  misconfiguration: number;
+  mobile: number;
+  vue_nuxt: number;
+  fastify_backend: number;
+  data_exposure: number;
+}
+
+/**
+ * Security metrics for the codebase
+ */
+export interface SecurityMetrics {
+  filesAnalyzed: number;
+  linesAnalyzed: number;
+  securityRelatedFiles: number;
+  averageComplexity: number;
+  highComplexityFiles: number;
+  securityScore: number; // 0-100
+  riskLevel: "critical" | "high" | "moderate" | "low" | "minimal";
+  errorBoundaries?: number;
+  secureStorageOps?: number;
+  totalPatterns?: number;
+  antiPatterns?: number;
+}
+
+/**
+ * Prioritized recommendation
+ */
+export interface SecurityRecommendation {
+  priority: "immediate" | "high" | "medium" | "low";
+  title: string;
+  description: string;
+  effort: "low" | "medium" | "high";
+  impact: "low" | "medium" | "high";
+  affectedFiles: string[];
+  relatedFindings: string[]; // vulnerability IDs
+}
+
+/**
+ * Security analysis parameters
+ */
+export interface SecurityAnalysisParams {
+  projectPath?: string;
+  includeGlobs?: string[];
+  excludeGlobs?: string[];
+  severity?: SecuritySeverity[]; // Filter by severity
+  categories?: SecurityCategory[]; // Filter by category
+  framework?: FrameworkType; // Override auto-detection
+  includePositive?: boolean; // Include positive practices (default: true)
+  generateReport?: boolean; // Generate markdown report
+  page?: number;
+  pageSize?: number;
+}
+
+/**
+ * Complete security analysis result
+ */
+export interface SecurityAnalysisResult {
+  projectPath: string;
+  framework: FrameworkType;
+  frameworkVersion?: string;
+  analyzedAt: string;
+
+  // Summary tables
+  severitySummary: SecuritySeveritySummary;
+  categorySummary: SecurityCategorySummary;
+  statusSummary: {
+    needs_fix: number;
+    review: number;
+    acceptable: number;
+  };
+
+  // Detailed findings
+  vulnerabilities: SecurityVulnerability[];
+  positivePatterns: PositiveSecurityPractice[];
+
+  // Metrics
+  metrics: SecurityMetrics;
+
+  // Recommendations (sorted by priority)
+  recommendations: SecurityRecommendation[];
+
+  // Report (if generated)
+  markdownReport?: string;
+
+  // Pagination metadata
+  _pagination?: {
+    currentPage: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+    hasNextPage: boolean;
+  };
+
+  // MCP optimization metadata
+  metadata?: {
+    responseOptimized: boolean;
+    mcpOptimizations?: string[];
+    tokenEstimate?: number;
+  };
+}
+
+/**
+ * Detection context passed to all security detectors
+ */
+export interface SecurityDetectionContext {
+  filePath: string;
+  relativePath: string;
+  content: string;
+  ast: ASTNode;
+  framework: FrameworkType;
+  imports: Array<{ source: string; specifiers: string[] }>;
+  exports: string[];
+  complexity: number;
+}
+
+/**
+ * Result from a security detector
+ */
+export interface SecurityDetectorResult {
+  vulnerabilities: SecurityVulnerability[];
+  positivePatterns: PositiveSecurityPractice[];
+}
