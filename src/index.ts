@@ -22,13 +22,25 @@ import {
   Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 
-// Tool imports (will be implemented)
+// Tool imports
 import { analyzeArchitecture } from "./tools/architecture-analyzer.js";
 import { analyzeDependencyGraph } from "./tools/dependency-mapper.js";
 import { analyzePatterns } from "./tools/pattern-detector.js";
 import { analyzeCoverageGaps } from "./tools/coverage-analyzer.js";
 import { validateConventions } from "./tools/convention-validator.js";
 import { generateContextPack } from "./tools/context-pack-generator.js";
+import { analyzeSecurityVulnerabilities } from "./tools/security-analyzer.js";
+
+// Parameter types for tool handlers
+import type {
+  ArchitectureAnalysisParams,
+  DependencyAnalysisParams,
+  PatternAnalysisParams,
+  CoverageAnalysisParams,
+  ConventionValidationParams,
+  ContextPackParams,
+  SecurityAnalysisParams,
+} from "./types/index.js";
 
 // Tool definitions (token-optimized)
 const TOOLS: Tool[] = [
@@ -167,6 +179,40 @@ const TOOLS: Tool[] = [
       required: ["task"],
     },
   },
+  {
+    name: "security",
+    description: "Security vulnerability analysis with OWASP mapping",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Project root" },
+        inc: { type: "array", items: { type: "string" }, description: "Include globs" },
+        exc: { type: "array", items: { type: "string" }, description: "Exclude globs" },
+        sev: {
+          type: "array",
+          items: { type: "string", enum: ["critical", "high", "medium", "low", "info"] },
+          description: "Filter by severity",
+        },
+        cats: {
+          type: "array",
+          items: {
+            type: "string",
+            enum: ["injection", "crypto", "access_control", "misconfiguration", "mobile", "vue_nuxt", "fastify_backend", "data_exposure"],
+          },
+          description: "Filter by category",
+        },
+        fw: {
+          type: "string",
+          enum: ["react", "rn", "expo", "vue3", "nuxt3", "fastify", "node"],
+          description: "Override framework",
+        },
+        pos: { type: "boolean", description: "Include positive patterns (default: true)" },
+        report: { type: "boolean", description: "Generate markdown report" },
+        page: { type: "number", description: "Page number" },
+        pageSize: { type: "number", description: "Items per page" },
+      },
+    },
+  },
 ];
 
 // Create server instance
@@ -183,85 +229,140 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
   return { tools: TOOLS };
 });
 
+// Type definitions for parameter mapping
+interface ParamMapping {
+  short: string;
+  long: string;
+  transform?: (value: unknown) => unknown;
+}
+
+// Value transformers for common patterns
+const transforms = {
+  depthArchitecture: (v: unknown): unknown => {
+    const s = v as string;
+    return s === 'o' ? 'overview' : s === 'd' ? 'detailed' : 'deep';
+  },
+  frameworkShort: (v: unknown): unknown => {
+    const s = v as string;
+    return s === 'rn' ? 'react-native' : s;
+  },
+  testFramework: (v: unknown): unknown => {
+    const s = v as string;
+    return s === 'pw' ? 'playwright' : s;
+  },
+  priorityShort: (v: unknown): unknown => {
+    const s = v as string;
+    return s === 'crit' ? 'critical' : s === 'med' ? 'medium' : s;
+  },
+  severityShort: (v: unknown): unknown => {
+    const s = v as string;
+    return s === 'err' ? 'error' : s === 'warn' ? 'warning' : s;
+  },
+  formatShort: (v: unknown): unknown => {
+    const s = v as string;
+    return s === 'md' ? 'markdown' : s;
+  },
+  strategyShort: (v: unknown): unknown => {
+    const s = v as string;
+    const map: Record<string, string> = { rel: 'relevance', wide: 'breadth', deep: 'depth' };
+    return map[s] || s;
+  },
+};
+
+// Common parameter mappings shared across tools
+const commonMappings: ParamMapping[] = [
+  { short: 'path', long: 'projectPath' },
+  { short: 'inc', long: 'includeGlobs' },
+  { short: 'exc', long: 'excludeGlobs' },
+];
+
+// Tool-specific parameter mappings
+const toolMappings: Record<string, ParamMapping[]> = {
+  arch: [
+    { short: 'depth', long: 'depth', transform: transforms.depthArchitecture },
+    { short: 'types', long: 'analyzeTypes' },
+    { short: 'diagrams', long: 'generateDiagrams' },
+    { short: 'metrics', long: 'includeMetrics' },
+    { short: 'details', long: 'includeDetailedMetrics' },
+    { short: 'minCx', long: 'minComplexity' },
+    { short: 'maxFiles', long: 'maxDetailedFiles' },
+    { short: 'memSuggest', long: 'generateMemorySuggestions' },
+    { short: 'autoFw', long: 'detectFramework' },
+    { short: 'fw', long: 'framework', transform: transforms.frameworkShort },
+  ],
+  deps: [
+    { short: 'depth', long: 'depth' },
+    { short: 'circular', long: 'detectCircular' },
+    { short: 'metrics', long: 'calculateMetrics' },
+    { short: 'diagram', long: 'generateDiagram' },
+    { short: 'focus', long: 'focusModule' },
+    { short: 'external', long: 'includeExternal' },
+  ],
+  patterns: [
+    { short: 'types', long: 'patternTypes' },
+    { short: 'custom', long: 'detectCustomPatterns' },
+    { short: 'best', long: 'compareWithBestPractices' },
+    { short: 'suggest', long: 'suggestImprovements' },
+  ],
+  coverage: [
+    { short: 'report', long: 'coverageReportPath' },
+    { short: 'fw', long: 'framework', transform: transforms.testFramework },
+    { short: 'threshold', long: 'threshold' },
+    { short: 'priority', long: 'priority', transform: transforms.priorityShort },
+    { short: 'tests', long: 'suggestTests' },
+    { short: 'cx', long: 'analyzeComplexity' },
+  ],
+  conventions: [
+    { short: 'rules', long: 'conventions' },
+    { short: 'auto', long: 'autodetectConventions' },
+    { short: 'severity', long: 'severity', transform: transforms.severityShort },
+  ],
+  context: [
+    { short: 'task', long: 'task' },
+    { short: 'tokens', long: 'maxTokens' },
+    { short: 'include', long: 'includeTypes' },
+    { short: 'focus', long: 'focusAreas' },
+    { short: 'history', long: 'includeHistory' },
+    { short: 'format', long: 'format', transform: transforms.formatShort },
+    { short: 'lineNums', long: 'includeLineNumbers' },
+    { short: 'strategy', long: 'optimizationStrategy', transform: transforms.strategyShort },
+  ],
+  security: [
+    { short: 'sev', long: 'severity' },
+    { short: 'cats', long: 'categories' },
+    { short: 'fw', long: 'framework', transform: transforms.frameworkShort },
+    { short: 'pos', long: 'includePositive' },
+    { short: 'report', long: 'generateReport' },
+    { short: 'page', long: 'page' },
+    { short: 'pageSize', long: 'pageSize' },
+  ],
+};
+
+// Apply a single mapping to the result object
+function applyMapping(args: Record<string, unknown>, mapped: Record<string, unknown>, mapping: ParamMapping): void {
+  if (mapping.short in args) {
+    const value = args[mapping.short];
+    mapped[mapping.long] = mapping.transform ? mapping.transform(value) : value;
+  }
+}
+
 // Parameter mapping: short -> long names
-function mapParams(tool: string, args: any): any {
-  if (!args) return args;
+function mapParams(tool: string, args: Record<string, unknown> | undefined): Record<string, unknown> {
+  if (!args) return {};
 
-  const mapped: any = {};
+  const mapped: Record<string, unknown> = {};
 
-  // Common mappings
-  if ('path' in args) mapped.projectPath = args.path;
-  if ('inc' in args) mapped.includeGlobs = args.inc;
-  if ('exc' in args) mapped.excludeGlobs = args.exc;
+  // Apply common mappings
+  for (const mapping of commonMappings) {
+    applyMapping(args, mapped, mapping);
+  }
 
-  // Tool-specific mappings
-  switch (tool) {
-    case "arch":
-      if ('depth' in args) mapped.depth = args.depth === 'o' ? 'overview' : args.depth === 'd' ? 'detailed' : 'deep';
-      if ('types' in args) mapped.analyzeTypes = args.types;
-      if ('diagrams' in args) mapped.generateDiagrams = args.diagrams;
-      if ('metrics' in args) mapped.includeMetrics = args.metrics;
-      if ('details' in args) mapped.includeDetailedMetrics = args.details;
-      if ('minCx' in args) mapped.minComplexity = args.minCx;
-      if ('maxFiles' in args) mapped.maxDetailedFiles = args.maxFiles;
-      if ('memSuggest' in args) mapped.generateMemorySuggestions = args.memSuggest;
-      if ('autoFw' in args) mapped.detectFramework = args.autoFw;
-      if ('fw' in args) mapped.framework = args.fw === 'rn' ? 'react-native' : args.fw;
-      break;
-
-    case "deps":
-      if ('depth' in args) mapped.depth = args.depth;
-      if ('circular' in args) mapped.detectCircular = args.circular;
-      if ('metrics' in args) mapped.calculateMetrics = args.metrics;
-      if ('diagram' in args) mapped.generateDiagram = args.diagram;
-      if ('focus' in args) mapped.focusModule = args.focus;
-      if ('external' in args) mapped.includeExternal = args.external;
-      break;
-
-    case "patterns":
-      if ('types' in args) mapped.patternTypes = args.types;
-      if ('custom' in args) mapped.detectCustomPatterns = args.custom;
-      if ('best' in args) mapped.compareWithBestPractices = args.best;
-      if ('suggest' in args) mapped.suggestImprovements = args.suggest;
-      break;
-
-    case "coverage":
-      if ('report' in args) mapped.coverageReportPath = args.report;
-      if ('fw' in args) mapped.framework = args.fw === 'pw' ? 'playwright' : args.fw;
-      if ('threshold' in args) mapped.threshold = args.threshold;
-      if ('priority' in args) {
-        const p = args.priority;
-        mapped.priority = p === 'crit' ? 'critical' : p === 'med' ? 'medium' : p;
-      }
-      if ('tests' in args) mapped.suggestTests = args.tests;
-      if ('cx' in args) mapped.analyzeComplexity = args.cx;
-      break;
-
-    case "conventions":
-      if ('rules' in args) mapped.conventions = args.rules;
-      if ('auto' in args) mapped.autodetectConventions = args.auto;
-      if ('severity' in args) {
-        const s = args.severity;
-        mapped.severity = s === 'err' ? 'error' : s === 'warn' ? 'warning' : s;
-      }
-      break;
-
-    case "context":
-      if ('task' in args) mapped.task = args.task;
-      if ('tokens' in args) mapped.maxTokens = args.tokens;
-      if ('include' in args) mapped.includeTypes = args.include;
-      if ('focus' in args) mapped.focusAreas = args.focus;
-      if ('history' in args) mapped.includeHistory = args.history;
-      if ('format' in args) {
-        const f = args.format;
-        mapped.format = f === 'md' ? 'markdown' : f;
-      }
-      if ('lineNums' in args) mapped.includeLineNumbers = args.lineNums;
-      if ('strategy' in args) {
-        const st = args.strategy;
-        mapped.optimizationStrategy = st === 'rel' ? 'relevance' : st === 'wide' ? 'breadth' : st === 'deep' ? 'depth' : st;
-      }
-      break;
+  // Apply tool-specific mappings
+  const specificMappings = toolMappings[tool];
+  if (specificMappings) {
+    for (const mapping of specificMappings) {
+      applyMapping(args, mapped, mapping);
+    }
   }
 
   return mapped;
@@ -272,26 +373,29 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
   try {
-    const mappedArgs = mapParams(name, args);
+    const mappedArgs = mapParams(name, args as Record<string, unknown> | undefined);
 
     switch (name) {
       case "arch":
-        return await analyzeArchitecture(mappedArgs as any);
+        return await analyzeArchitecture(mappedArgs as ArchitectureAnalysisParams);
 
       case "deps":
-        return await analyzeDependencyGraph(mappedArgs as any);
+        return await analyzeDependencyGraph(mappedArgs as DependencyAnalysisParams);
 
       case "patterns":
-        return await analyzePatterns(mappedArgs as any);
+        return await analyzePatterns(mappedArgs as PatternAnalysisParams);
 
       case "coverage":
-        return await analyzeCoverageGaps(mappedArgs as any);
+        return await analyzeCoverageGaps(mappedArgs as CoverageAnalysisParams);
 
       case "conventions":
-        return await validateConventions(mappedArgs as any);
+        return await validateConventions(mappedArgs as ConventionValidationParams);
 
       case "context":
-        return await generateContextPack(mappedArgs as any);
+        return await generateContextPack(mappedArgs as unknown as ContextPackParams);
+
+      case "security":
+        return await analyzeSecurityVulnerabilities(mappedArgs as SecurityAnalysisParams);
 
       default:
         throw new Error(`Unknown tool: ${name}`);
