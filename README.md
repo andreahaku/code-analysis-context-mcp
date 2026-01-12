@@ -1653,7 +1653,7 @@ Perform comprehensive security vulnerability analysis with OWASP Top 10 mapping,
 
 - **OWASP Top 10 2021 Mapping**: Each vulnerability mapped to specific OWASP category
 - **Severity Levels**: Critical, High, Medium, Low, Info
-- **Framework-Aware Detection**: Specialized checks for React Native/Expo, Vue/Nuxt, Fastify
+- **Framework-Aware Detection**: Specialized checks for React, React Native/Expo, Vue/Nuxt, Fastify
 - **Positive Pattern Recognition**: Identifies good security practices already in place
 - **Security Score**: 0-100 score based on vulnerability findings
 - **Actionable Recommendations**: Prioritized remediation guidance
@@ -1664,9 +1664,11 @@ Perform comprehensive security vulnerability analysis with OWASP Top 10 mapping,
 |----------|-------|-------------|
 | `injection` | A03:2021 | SQL, XSS, Command, NoSQL, Template injection |
 | `crypto` | A02:2021 | Hardcoded secrets, weak crypto, insecure storage |
-| `access_control` | A01:2021 | CORS misconfiguration, missing auth, IDOR |
+| `access_control` | A01:2021 | CORS misconfiguration, missing auth, IDOR, open redirects |
 | `misconfiguration` | A05:2021 | Debug mode, verbose errors, insecure cookies |
+| `data_exposure` | A02:2021 | Sensitive data in state/props, server secrets leaked |
 | `mobile` | Mobile-Specific | Insecure storage, missing cert pinning, deep links |
+| `react` | Framework-Specific | dangerouslySetInnerHTML, URL injection, CSRF, Next.js leaks |
 | `vue_nuxt` | Framework-Specific | v-html XSS, exposed runtime config, SSR issues |
 | `fastify_backend` | Framework-Specific | Missing validation, rate limiting, auth hooks |
 
@@ -1708,6 +1710,30 @@ await AsyncStorage.setItem('authToken', token);
 
 // Safe - positive pattern recognized
 await SecureStore.setItemAsync('authToken', token);
+```
+
+**React Web Specific:**
+```typescript
+// XSS via dangerouslySetInnerHTML - detected
+<div dangerouslySetInnerHTML={{ __html: userContent }} />
+
+// Safe - sanitized content recognized as positive pattern
+<div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(userContent) }} />
+
+// Open redirect vulnerability - detected
+const returnUrl = searchParams.get('redirect');
+window.location.href = returnUrl;  // Unvalidated redirect
+
+// URL injection in href - detected
+<a href={userProvidedUrl}>Click here</a>  // Could be javascript:
+
+// Sensitive data in React state - detected
+const [password, setPassword] = useState('');  // Visible in DevTools
+
+// Next.js server secrets leaked to client - detected
+export async function getServerSideProps() {
+  return { props: { apiKey: process.env.SECRET_KEY } };  // Sent to browser!
+}
 ```
 
 **Vue/Nuxt Specific:**

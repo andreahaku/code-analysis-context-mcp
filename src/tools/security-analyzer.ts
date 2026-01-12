@@ -34,6 +34,7 @@ import { detectMisconfigurationVulnerabilities } from "../security/misconfigurat
 import { detectMobileVulnerabilities } from "../security/mobile-detector.js";
 import { detectVueNuxtVulnerabilities } from "../security/vue-nuxt-detector.js";
 import { detectFastifyVulnerabilities } from "../security/fastify-detector.js";
+import { detectReactVulnerabilities } from "../security/react-detector.js";
 import { detectPositivePatterns } from "../security/positive-detector.js";
 
 // MCP Response size limit (25k tokens ≈ 100k chars, use 18k safe threshold)
@@ -131,6 +132,13 @@ export async function analyzeSecurityVulnerabilities(
         const mobile = await detectMobileVulnerabilities(ctx);
         allVulnerabilities.push(...mobile.vulnerabilities);
         allPositivePatterns.push(...mobile.positivePatterns);
+      }
+
+      if (effectiveFramework === "react" || effectiveFramework === "node") {
+        // React detector also checks for React code in Node projects
+        const react = await detectReactVulnerabilities(ctx);
+        allVulnerabilities.push(...react.vulnerabilities);
+        allPositivePatterns.push(...react.positivePatterns);
       }
 
       if (effectiveFramework === "vue3" || effectiveFramework === "nuxt3") {
