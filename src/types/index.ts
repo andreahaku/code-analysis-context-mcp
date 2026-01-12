@@ -1201,7 +1201,8 @@ export type SecurityCategory =
   | "mobile"
   | "vue_nuxt"
   | "fastify_backend"
-  | "data_exposure";
+  | "data_exposure"
+  | "dependencies";
 
 /**
  * Individual security vulnerability finding
@@ -1272,6 +1273,7 @@ export interface SecurityCategorySummary {
   vue_nuxt: number;
   fastify_backend: number;
   data_exposure: number;
+  dependencies: number;
 }
 
 /**

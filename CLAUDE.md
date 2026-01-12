@@ -334,7 +334,9 @@ All 7 MCP tools are fully implemented and production-ready:
      - **mobile-detector**: React Native/Expo secure storage, clipboard, deep links
      - **vue-nuxt-detector**: v-html XSS, Nitro route validation, runtime config
      - **fastify-detector**: Route validation, rate limiting, auth hooks, DB creds
+     - **dependency-detector**: npm vulnerability scanning via OSV database (GHSA/CVE)
      - **positive-detector**: Input validation, parameterized queries, error boundaries
+   - Dependency vulnerability scanning (like Dependabot) via OSV.dev API
    - Severity levels: critical, high, medium, low, info
    - Security score (0-100) and risk level assessment
    - Prioritized recommendations with effort/impact ratings

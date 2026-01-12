@@ -1671,6 +1671,7 @@ Perform comprehensive security vulnerability analysis with OWASP Top 10 mapping,
 | `react` | Framework-Specific | dangerouslySetInnerHTML, URL injection, CSRF, Next.js leaks |
 | `vue_nuxt` | Framework-Specific | v-html XSS, exposed runtime config, SSR issues |
 | `fastify_backend` | Framework-Specific | Missing validation, rate limiting, auth hooks |
+| `dependencies` | A06:2021 | Vulnerable npm packages via OSV database |
 
 **Detection Examples:**
 
@@ -1764,6 +1765,33 @@ fastify.post('/api/users', {
 }, handler);
 ```
 
+**Dependency Vulnerabilities (A06):**
+
+Scans npm dependencies using the OSV (Open Source Vulnerabilities) database - similar to Dependabot but accessible via MCP:
+
+```typescript
+// Scan only dependencies
+security({ path: "/project", cats: ["dependencies"] });
+
+// Example vulnerability finding:
+{
+  "id": "DEP-001",
+  "category": "dependencies",
+  "owasp": "A06:2021-Vulnerable and Outdated Components",
+  "severity": "high",
+  "title": "lodash@4.17.15: Prototype Pollution",
+  "cve": "CVE-2021-23337",
+  "ghsa": "GHSA-35jh-r3h4-6jhm",
+  "remediation": "Upgrade lodash to version 4.17.21 or later"
+}
+
+// Positive patterns detected:
+// - Package lockfile (package-lock.json)
+// - Node.js engine constraints
+// - Dependabot/Renovate configurations
+// - npm overrides for forced upgrades
+```
+
 **Example Output:**
 
 ```json
@@ -1787,7 +1815,8 @@ fastify.post('/api/users', {
     "mobile": 4,
     "vue_nuxt": 0,
     "fastify_backend": 0,
-    "data_exposure": 0
+    "data_exposure": 0,
+    "dependencies": 0
   },
   "statusSummary": {
     "needs_fix": 12,
@@ -1944,6 +1973,13 @@ Risk Levels:
    // Fail pipeline on critical vulnerabilities
    ```
 
+6. **Dependency Vulnerability Scan** (like Dependabot):
+   ```typescript
+   security({ path: "/project", cats: ["dependencies"] });
+   // Check npm packages against OSV vulnerability database
+   // Returns CVE/GHSA IDs, severity, and upgrade recommendations
+   ```
+
 **Positive Patterns Detected:**
 
 The tool also recognizes good security practices:
@@ -1958,6 +1994,9 @@ The tool also recognizes good security practices:
 | Secure Storage | SecureStore, Keychain | Encrypted credential storage |
 | HTTPS Enforcement | redirect middleware | Encrypted transport |
 | CORS Configuration | Specific origins | Controlled cross-origin access |
+| Package Lockfile | package-lock.json | Reproducible builds, version pinning |
+| Engine Constraints | engines field | Prevents unsupported Node.js versions |
+| Dependency Automation | Dependabot, Renovate | Automatic security updates |
 
 ## Example: Detailed Metrics Output
 
@@ -2570,6 +2609,7 @@ Create a `.code-analysis.json` file in your project root:
 - [x] Framework-specific checks (React Native/Expo, Vue/Nuxt, Fastify)
 - [x] Positive security pattern recognition
 - [x] Security scoring and prioritized recommendations
+- [x] Dependency vulnerability scanning via OSV database (like Dependabot)
 
 ## Architecture
 

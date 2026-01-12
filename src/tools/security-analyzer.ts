@@ -36,6 +36,7 @@ import { detectVueNuxtVulnerabilities } from "../security/vue-nuxt-detector.js";
 import { detectFastifyVulnerabilities } from "../security/fastify-detector.js";
 import { detectReactVulnerabilities } from "../security/react-detector.js";
 import { detectPositivePatterns } from "../security/positive-detector.js";
+import { detectDependencyVulnerabilities, type DependencyScanResult } from "../security/dependency-detector.js";
 
 // MCP Response size limit (25k tokens ≈ 100k chars, use 18k safe threshold)
 const MCP_SAFE_TOKEN_LIMIT = 18000;
@@ -107,6 +108,22 @@ export async function analyzeSecurityVulnerabilities(
     // Run all detectors in parallel
     const allVulnerabilities: SecurityVulnerability[] = [];
     const allPositivePatterns: PositiveSecurityPractice[] = [];
+
+    // Run dependency vulnerability scan (scans package.json, not individual files)
+    // Only run if 'dependencies' category is not filtered out
+    const shouldScanDeps = !categoryFilter || categoryFilter.length === 0 || categoryFilter.includes("dependencies");
+    let dependencyScanResult: DependencyScanResult | undefined;
+
+    if (shouldScanDeps) {
+      try {
+        dependencyScanResult = await detectDependencyVulnerabilities(projectPath, effectiveFramework);
+        allVulnerabilities.push(...dependencyScanResult.vulnerabilities);
+        allPositivePatterns.push(...dependencyScanResult.positivePatterns);
+      } catch (error) {
+        // Dependency scan failed, continue with other detectors
+        console.error("Dependency scan failed:", error);
+      }
+    }
 
     for (const ctx of contexts) {
       // Run framework-agnostic detectors
@@ -222,6 +239,7 @@ export async function analyzeSecurityVulnerabilities(
       vue_nuxt: filteredVulnerabilities.filter((v) => v.category === "vue_nuxt").length,
       fastify_backend: filteredVulnerabilities.filter((v) => v.category === "fastify_backend" || v.category === "input_validation" as any).length,
       data_exposure: filteredVulnerabilities.filter((v) => v.category === "data_exposure").length,
+      dependencies: filteredVulnerabilities.filter((v) => v.category === "dependencies").length,
     };
 
     const statusSummary = {

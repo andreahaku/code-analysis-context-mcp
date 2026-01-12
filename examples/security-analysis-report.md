@@ -237,6 +237,72 @@ The analyzer also detected numerous good security practices in the codebase:
 | Configuration | Environment-Aware Configuration | `src/security/misconfiguration-detector.ts` |
 | ... | ... | ... |
 
+## Dependency Vulnerability Analysis
+
+The security tool now includes **Dependabot-like dependency scanning** that checks all npm packages against the OSV (Open Source Vulnerabilities) database.
+
+### Dependency Summary
+
+| Metric | Value |
+|--------|-------|
+| Total Dependencies | 15 |
+| Production | 7 |
+| Development | 8 |
+| Vulnerable | 0 |
+
+### Vulnerable Dependencies
+
+✅ **No known vulnerabilities found** in project dependencies.
+
+This is the ideal state - all dependencies are up-to-date and have no known security issues.
+
+### Dependency Security Practices Detected
+
+| Practice | Description | File |
+|----------|-------------|------|
+| Package Lockfile | Uses package-lock.json to lock versions | `package-lock.json` |
+| Engine Constraints | Specifies Node.js >=18.0.0 | `package.json` |
+
+### Example: What Vulnerable Dependencies Look Like
+
+If vulnerabilities were found, they would appear like this:
+
+```
+### DEP-001: lodash@4.17.15: Prototype Pollution
+
+- **Severity:** HIGH
+- **Category:** A06:2021-Vulnerable Components
+- **CVE:** CVE-2021-23337
+- **GHSA:** GHSA-35jh-r3h4-6jhm
+- **Fixed in:** 4.17.21
+
+**Risk:** Using lodash@4.17.15 which has a known high severity vulnerability (CVE-2021-23337)
+
+**Remediation:** Upgrade lodash to version 4.17.21 or later
+```
+
+### How Dependency Scanning Works
+
+The tool:
+1. Reads `package.json` and `package-lock.json`
+2. Extracts all dependencies with exact versions
+3. Queries the [OSV API](https://osv.dev/) (Open Source Vulnerabilities database)
+4. Maps findings to OWASP A06:2021 (Vulnerable and Outdated Components)
+5. Provides remediation advice with fixed versions
+
+### Filtering by Dependencies Only
+
+To scan only dependencies (skip code analysis):
+```json
+{
+  "tool": "security",
+  "args": {
+    "path": "/your/project",
+    "cats": ["dependencies"]
+  }
+}
+```
+
 ## Analysis Metrics
 
 | Metric | Value |
